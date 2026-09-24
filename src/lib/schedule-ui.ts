@@ -5,7 +5,12 @@
 import { downloadText, scheduleToCsv } from './csv.ts';
 import { q } from './dom.ts';
 import { buildSchedule } from './mortgage/index.ts';
-import { renderKeyFigures, renderScheduleTable, renderYearsTable } from './schedule-render.ts';
+import {
+  extraOverpayment,
+  renderKeyFigures,
+  renderScheduleTable,
+  renderYearsTable,
+} from './schedule-render.ts';
 import { DEFAULT_STATE, decodeState } from './url-state.ts';
 
 export function initSchedulePage(root: HTMLElement): void {
@@ -15,7 +20,7 @@ export function initSchedulePage(root: HTMLElement): void {
   try {
     const result = buildSchedule(state);
     renderKeyFigures(root, state, result);
-    renderScheduleTable(root, result);
+    renderScheduleTable(root, result, extraOverpayment(state));
     renderYearsTable(root, result);
     const legendGrace = root.querySelector<HTMLElement>('[data-out="legend-grace"]');
     if (legendGrace) legendGrace.hidden = result.summary.graceMonths === 0;
@@ -23,7 +28,7 @@ export function initSchedulePage(root: HTMLElement): void {
     if (legendPrepay) legendPrepay.hidden = result.summary.totalPrepaid === 0;
     root.querySelector('[data-action="csv"]')?.addEventListener('click', () => {
       downloadText(
-        `amortize-${state.type}-${state.amount}-${state.months}.csv`,
+        `calcwise-${state.type}-${state.amount}-${state.months}.csv`,
         scheduleToCsv(result),
         'text/csv;charset=utf-8',
       );

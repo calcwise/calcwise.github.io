@@ -9,8 +9,10 @@ interface Props {
   scroll?: boolean;
   /** Результат для стартовых строк; без него таблица пустая до расчёта скриптом */
   result?: ScheduleResult;
+  /** Введённая дополнительная переплата: нулевая строка и итог */
+  extra?: number;
 }
-const { scroll = true, result } = Astro.props;
+const { scroll = true, result, extra = 0 } = Astro.props;
 const hasRates = (result?.input.rates.length ?? 0) > 1;
 const hasPrepay = (result?.summary.totalPrepaid ?? 0) > 0;
 ---
@@ -31,12 +33,14 @@ const hasPrepay = (result?.summary.totalPrepaid ?? 0) > 0;
         <th scope="col">Осталось выплатить</th>
       </tr>
     </thead>
-    <tbody data-out="schedule-body" set:html={result ? scheduleRowsHtml(result) : ''} />
+    <tbody data-out="schedule-body" set:html={result ? scheduleRowsHtml(result, extra) : ''} />
     <tfoot>
       <tr>
         <th scope="row">Итого</th>
         <td data-col="rate" hidden={!hasRates}></td>
-        <td class="num" data-out="foot-paid">{result && fmtMoney(result.summary.totalPaid)}</td>
+        <td class="num" data-out="foot-paid"
+          >{result && fmtMoney(Math.round((result.summary.totalPaid + extra) * 100) / 100)}</td
+        >
         <td class="num cell--principal" data-out="foot-principal"
           >{result && fmtMoney(result.summary.totalPrincipal)}</td
         >

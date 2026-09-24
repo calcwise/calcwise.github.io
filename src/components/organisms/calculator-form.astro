@@ -39,7 +39,7 @@ const termUnits = [
     <summary class="extra__summary">
       <span class="extra__title">Дополнительные условия</span>
       <span class="extra__hint" data-out="extra-hint"
-        >ставка по периодам, отсрочка, досрочные погашения</span
+        >ставка по периодам, отсрочка, досрочные погашения, порядок процентов, переплата</span
       >
     </summary>
     <div class="extra__body">
@@ -99,6 +99,37 @@ const termUnits = [
           </div>
         </div>
       </section>
+
+      <section class="block" aria-labelledby="interest-heading">
+        <div class="block__head">
+          <h2 class="block__title" id="interest-heading">Начисление процентов</h2>
+          <p class="block__hint">
+            Некоторые банки берут проценты за прошедший месяц: первый платёж закрывает проценты за
+            месяц выдачи, а проценты за последний месяц в график не входят.
+          </p>
+        </div>
+        <div class="block__body">
+          <label class="check">
+            <input type="checkbox" data-field="interest-arrears" />
+            <span>Проценты платятся за предыдущий месяц</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="extra-heading">
+        <div class="block__head">
+          <h2 class="block__title" id="extra-heading">Дополнительная переплата</h2>
+          <p class="block__hint">
+            Что банк добавляет к итогу сверх графика: комиссия, страховка или лишний платёж в
+            распечатке. Учитывается, только если введена: нулевой строкой графика и в «Всего
+            выплачено». Подсказка в поле — один платёж: у аннуитета ежемесячный, у
+            дифференцированного первый по процентам.
+          </p>
+        </div>
+        <div class="block__body">
+          <Field label="Сумма" field="extra-overpayment" class="extra-field" />
+        </div>
+      </section>
     </div>
   </details>
 
@@ -134,7 +165,7 @@ const termUnits = [
   .extra__summary {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
+    align-items: center;
     gap: var(--space-1) var(--space-3);
     min-height: var(--tap-min);
     position: relative;
@@ -228,7 +259,8 @@ const termUnits = [
     border-top: 1px solid var(--color-rule);
   }
 
-  .target > :global(.target__field) {
+  .target > :global(.target__field),
+  .block__body > :global(.extra-field) {
     max-width: 16rem;
   }
 

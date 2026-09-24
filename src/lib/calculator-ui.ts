@@ -6,6 +6,7 @@
 import { balanceChart, yearsChart } from './charts.ts';
 import { downloadText, scheduleToCsv } from './csv.ts';
 import { clear, debounce, el, q, qa } from './dom.ts';
+import { guardNumericInputs } from './numeric-input.ts';
 import {
   fmtMoney,
   fmtMonthsAsYears,
@@ -26,7 +27,9 @@ import {
 } from './mortgage/index.ts';
 import type { GracePeriod, Prepayment, RatePeriod, ScheduleResult } from './mortgage/index.ts';
 import {
+  extraOverpayment,
   renderKeyFigures,
+  suggestedExtra,
   renderScheduleTable,
   renderYearsTable,
   sensitivityHtml,
@@ -35,7 +38,7 @@ import {
 import { DEFAULT_STATE, decodeState, encodeState } from './url-state.ts';
 import type { CalculatorState } from './url-state.ts';
 
-const STORAGE_KEY = 'amortize:mortgage:v3';
+const STORAGE_KEY = 'calcwise:mortgage:v3';
 let uid = 0;
 
 /* ------------------------------------------------------------------ */
@@ -53,6 +56,8 @@ interface FormRefs {
   rates: HTMLElement;
   grace: HTMLElement;
   graceExtends: HTMLInputElement;
+  interestArrears: HTMLInputElement;
+  extraOverpayment: HTMLInputElement;
   prepayments: HTMLElement;
   extra: HTMLDetailsElement;
   errors: HTMLElement;
@@ -239,13 +244,18 @@ function fillForm(refs: FormRefs, state: CalculatorState, onChange: () => void):
   clear(refs.grace);
   (state.gracePeriods ?? []).forEach((g) => renderGraceRow(refs.grace, g, onChange));
   refs.graceExtends.checked = Boolean(state.graceExtendsTerm);
+  refs.interestArrears.checked = Boolean(state.interestInArrears);
+  refs.extraOverpayment.value =
+    state.extraOverpayment === undefined ? '' : formatAmountInput(String(state.extraOverpayment));
   clear(refs.prepayments);
   (state.prepayments ?? []).forEach((p) => renderPrepaymentRow(refs.prepayments, p, onChange));
 
   const hasExtra =
     state.rates.length > 1 ||
     (state.gracePeriods?.length ?? 0) > 0 ||
-    (state.prepayments?.length ?? 0) > 0;
+    (state.prepayments?.length ?? 0) > 0 ||
+    Boolean(state.interestInArrears) ||
+    state.extraOverpayment !== undefined;
   if (hasExtra) refs.extra.open = true;
 }
 
@@ -334,19 +344,28 @@ function readForm(refs: FormRefs): ReadResult {
     },
   );
 
-  return {
-    state: {
-      amount,
-      months,
-      type: refs.type(),
-      rates,
-      gracePeriods,
-      graceExtendsTerm: refs.graceExtends.checked,
-      prepayments,
-      termInYears: unit === 'years',
-    },
-    errors,
+  const extraRaw = refs.extraOverpayment.value.trim();
+  let extraOverpayment: number | undefined;
+  if (extraRaw !== '') {
+    extraOverpayment = parseNumber(extraRaw);
+    if (!Number.isFinite(extraOverpayment) || extraOverpayment < 0) {
+      errors.push({ field: 'extra-overpayment', message: 'Дополнительная переплата — число от 0' });
+    }
+  }
+
+  const state: CalculatorState = {
+    amount,
+    months,
+    type: refs.type(),
+    rates,
+    gracePeriods,
+    graceExtendsTerm: refs.graceExtends.checked,
+    interestInArrears: refs.interestArrears.checked,
+    prepayments,
+    termInYears: unit === 'years',
   };
+  if (extraOverpayment !== undefined) state.extraOverpayment = extraOverpayment;
+  return { state, errors };
 }
 
 function showErrors(refs: FormRefs, errors: FieldError[]): void {
@@ -382,6 +401,11 @@ function showErrors(refs: FormRefs, errors: FieldError[]): void {
 
 function renderSummary(root: HTMLElement, state: CalculatorState, r: ScheduleResult): void {
   renderKeyFigures(root, state, r);
+  /* Подсказка в поле — значение по умолчанию для текущего расчёта */
+  const extraField = root.querySelector<HTMLInputElement>('[data-field="extra-overpayment"]');
+  if (extraField) {
+    extraField.placeholder = formatAmountInput(String(suggestedExtra(state, r)));
+  }
   q(root, '[data-out="legend-grace"]').hidden = r.summary.graceMonths === 0;
   q(root, '[data-out="legend-prepay"]').hidden = r.summary.totalPrepaid === 0;
 
@@ -394,6 +418,9 @@ function renderSummary(root: HTMLElement, state: CalculatorState, r: ScheduleRes
   const prepays = state.prepayments?.length ?? 0;
   if (prepays)
     extras.push(`${prepays} ${prepays === 1 ? 'досрочное погашение' : 'досрочных погашения'}`);
+  if (state.interestInArrears) extras.push('проценты за предыдущий месяц');
+  if (state.extraOverpayment !== undefined)
+    extras.push(`переплата ${formatAmountInput(String(state.extraOverpayment))}`);
   hint.textContent = extras.length
     ? extras.join(', ')
     : 'ставка по периодам, отсрочка, досрочные погашения';
@@ -557,6 +584,8 @@ export function initCalculator(root: HTMLElement): void {
     rates: q(form, '[data-list="rates"]'),
     grace: q(form, '[data-list="grace"]'),
     graceExtends: q<HTMLInputElement>(form, '[data-field="grace-extends"]'),
+    interestArrears: q<HTMLInputElement>(form, '[data-field="interest-arrears"]'),
+    extraOverpayment: q<HTMLInputElement>(form, '[data-field="extra-overpayment"]'),
     prepayments: q(form, '[data-list="prepayments"]'),
     extra: q<HTMLDetailsElement>(form, '[data-extra]'),
     errors: q(form, '[data-errors]'),
@@ -608,7 +637,7 @@ export function initCalculator(root: HTMLElement): void {
     if (!result) return;
     current = state;
     renderSummary(root, state, result);
-    renderScheduleTable(root, result);
+    renderScheduleTable(root, result, extraOverpayment(state));
     const effect = renderEffect(root, result);
     renderAnalysis(root, state, result, effect?.baseline);
     renderTargetTerm(root, state, applyTarget);
@@ -623,6 +652,20 @@ export function initCalculator(root: HTMLElement): void {
 
   form.addEventListener('input', scheduleRecalc);
   form.addEventListener('change', scheduleRecalc);
+  /* Лишний символ в поле не появляется; подсказка висит пару секунд и уходит сама */
+  guardNumericInputs(form, (input, message) => {
+    const control = input.closest('.control') ?? input.closest('[data-row]');
+    control?.classList.add('control--invalid');
+    const duplicate = qa(refs.errors, 'li').find((li) => li.textContent === message);
+    const item = duplicate ?? el('li', { text: message });
+    if (!duplicate) refs.errors.append(item);
+    refs.errors.hidden = false;
+    setTimeout(() => {
+      item.remove();
+      control?.classList.remove('control--invalid');
+      refs.errors.hidden = refs.errors.children.length === 0;
+    }, 2000);
+  });
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     recalc();
@@ -696,7 +739,7 @@ export function initCalculator(root: HTMLElement): void {
   });
   root.querySelector('[data-action="csv"]')?.addEventListener('click', () => {
     downloadText(
-      `amortize-${current.type}-${current.amount}-${current.months}.csv`,
+      `calcwise-${current.type}-${current.amount}-${current.months}.csv`,
       scheduleToCsv(buildSchedule(current)),
       'text/csv;charset=utf-8',
     );

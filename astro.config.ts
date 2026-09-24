@@ -1,7 +1,7 @@
 import { defineConfig } from 'astro/config';
 
 export default defineConfig({
-  site: 'https://amortize.by',
+  site: 'https://calcwise.by',
   trailingSlash: 'always',
   build: {
     format: 'directory',

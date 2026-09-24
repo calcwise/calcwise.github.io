@@ -156,6 +156,107 @@ test('банковский расчётник: 250 000, 15,4%, 239 мес., от
   assert.equal(r.summary.totalPaid, 809439.55);
 });
 
+test('проценты за предыдущий месяц: бумажный график банка, дифференцированный', () => {
+  /* 250 000 под 15,4% на 239 мес. с отсрочкой 12: 227 частей долга по 1 101,32 */
+  const r = buildSchedule(
+    fixed(250_000, 15.4, 239, 'diff', {
+      gracePeriods: [{ start: 1, months: 12 }],
+      interestInArrears: true,
+    }),
+  );
+  assert.equal(r.rows.length, 239);
+  const row = (n: number) => r.rows[n - 1]!;
+  /* Отсрочка: 12 × 3 208,33 */
+  for (let n = 1; n <= 12; n++) assert.equal(row(n).payment, 3208.33);
+  /* Первые два месяца после отсрочки — проценты на полную сумму, дальше сдвиг на строку */
+  assert.deepEqual(
+    [row(13), row(14), row(15), row(16)].map((x) => [x.principal, x.interest, x.payment]),
+    [
+      [1101.32, 3208.33, 4309.65],
+      [1101.32, 3208.33, 4309.65],
+      [1101.32, 3194.2, 4295.52],
+      [1101.32, 3180.07, 4281.39],
+    ],
+  );
+  assert.equal(row(14).balance, 247797.36);
+  assert.equal(row(39).interest, 2854.99);
+  assert.equal(row(39).balance, 220264.32);
+  assert.equal(row(135).payment, 2599.49);
+  assert.equal(row(183).interest, 819.75);
+  assert.equal(row(231).balance, 8810.57);
+  /* Последняя строка: проценты на позапрошлый остаток 2 202,64, за последний месяц не входят */
+  assert.deepEqual([row(238).interest, row(238).balance], [42.4, 1101.32]);
+  assert.deepEqual(
+    [row(239).principal, row(239).interest, row(239).payment, row(239).balance],
+    [1101.32, 28.27, 1129.59, 0],
+  );
+  assert.equal(r.summary.graceInterest, 38500);
+  assert.equal(r.summary.totalPrincipal, 250000);
+  assert.equal(r.summary.totalInterest, 407444.2);
+  assert.equal(r.summary.totalPaid, 657444.2);
+});
+
+test('проценты за предыдущий месяц: остатки и долг те же, проценты сдвинуты на строку', () => {
+  const input = fixed(3_000_000, 12, 120, 'diff', {
+    gracePeriods: [{ start: 1, months: 6 }],
+    rates: [
+      { fromMonth: 1, ratePercent: 12 },
+      { fromMonth: 37, ratePercent: 9 },
+    ],
+  });
+  const plain = buildSchedule(input);
+  const arrears = buildSchedule({ ...input, interestInArrears: true });
+  assert.equal(arrears.rows.length, plain.rows.length);
+  arrears.rows.forEach((row, i) => {
+    assert.equal(row.balance, plain.rows[i]!.balance);
+    assert.equal(row.principal, plain.rows[i]!.principal);
+    /* Строка n берёт проценты строки n−1; первая — те же, что и в обычном графике */
+    assert.equal(row.interest, plain.rows[i === 0 ? 0 : i - 1]!.interest);
+  });
+  const last = plain.rows[plain.rows.length - 1]!;
+  const first = plain.rows[0]!;
+  near(
+    arrears.summary.totalInterest,
+    new Big(plain.summary.totalInterest).plus(first.interest).minus(last.interest),
+    'переплата',
+  );
+});
+
+test('проценты за предыдущий месяц: аннуитет постоянный и закрывает долг ровно в срок', () => {
+  const r = buildSchedule(
+    fixed(250_000, 15.4, 239, 'annuity', {
+      gracePeriods: [{ start: 1, months: 12 }],
+      interestInArrears: true,
+    }),
+  );
+  assert.equal(r.rows.length, 239);
+  assert.equal(r.rows[12]!.interest, 3208.33);
+  assert.equal(r.rows[13]!.interest, 3208.33);
+  const payment = r.rows[12]!.payment;
+  for (let m = 13; m <= 239; m++) assert.equal(r.rows[m - 1]!.payment, payment);
+  assert.equal(r.summary.lastPayment, payment);
+  assert.equal(r.rows[238]!.balance, 0);
+  /* Со сдвигом процентов платёж чуть выше обычного 3 396,21 */
+  assert.ok(payment > 3396.21 && payment < 3420, String(payment));
+
+  /* Без отсрочки и со ставкой 0 сводится к делению долга на срок */
+  const zero = buildSchedule(fixed(120_000, 0, 12, 'annuity', { interestInArrears: true }));
+  for (const row of zero.rows) assert.equal(row.payment, 10000);
+});
+
+test('проценты за предыдущий месяц: «уменьшить платёж» пересчитывает под сдвиг и закрывает в срок', () => {
+  const r = buildSchedule(
+    fixed(1_000_000, 10, 60, 'annuity', {
+      interestInArrears: true,
+      prepayments: [{ month: 12, amount: 200_000, mode: 'payment', repeat: 'once' }],
+    }),
+  );
+  assert.equal(r.rows.length, 60);
+  assert.equal(r.rows[59]!.balance, 0);
+  const after = r.rows[12]!.payment;
+  for (let m = 13; m <= 60; m++) assert.equal(r.rows[m - 1]!.payment, after);
+});
+
 test('отсрочка в середине: платёж до и после одинаковый', () => {
   const r = buildSchedule(
     fixed(3_000_000, 12, 240, 'annuity', { gracePeriods: [{ start: 13, months: 12 }] }),

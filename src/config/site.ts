@@ -20,8 +20,8 @@ export interface SiteConfig {
 }
 
 export const siteConfig: SiteConfig = {
-  name: 'Amortize',
-  siteUrl: 'https://amortize.by',
+  name: 'Calcwise',
+  siteUrl: 'https://calcwise.by',
   tagline: 'Калькулятор кредитов с графиком платежей по банковской методике',
   description:
     'Бесплатный калькулятор ипотеки и кредитов: аннуитетный и дифференцированный график, отсрочка по долгу, льготная ставка на первые месяцы, досрочные погашения и сравнение сценариев. Расчёт до копейки.',

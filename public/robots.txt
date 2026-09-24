@@ -6,4 +6,4 @@ Allow: /
 User-agent: Bytespider
 Disallow: /
 
-Sitemap: https://amortize.by/sitemap.xml
+Sitemap: https://calcwise.by/sitemap.xml

@@ -118,6 +118,7 @@ export function validateInput(
     rates,
     gracePeriods,
     graceExtendsTerm: Boolean(input.graceExtendsTerm),
+    interestInArrears: Boolean(input.interestInArrears),
     prepayments,
   };
 }

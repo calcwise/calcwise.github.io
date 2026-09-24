@@ -1,0 +1,86 @@
+# Боевой деплой на calcwise.by: push в main → сборка и проверки → выгрузка по SSH.
+#
+# Пока в репозитории не задана переменная DEPLOY_ENABLED=true, прогон пропускается —
+# так workflow лежит в репозитории заранее и не даёт красных сборок, пока нет доступов.
+#
+# Разовая настройка описана в README, раздел «Автоматический деплой».
+# Нужны секреты: SSH_PRIVATE_KEY, SSH_HOST, SSH_PORT, SSH_USER.
+
+name: Боевой деплой на calcwise.by
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Деплой на полпути не отменяем: оборванный rsync оставит сайт в половинчатом состоянии.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+env:
+  DEPLOY_PATH: /var/www/calcwise/data/www/calcwise.by
+
+jobs:
+  deploy:
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://calcwise.by
+    steps:
+      # Вся история нужна lib/lastmod.ts: даты для карты сайта он берёт из git log,
+      # а на клоне глубиной 1 все страницы получают один и тот же lastmod.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - run: npm run check
+
+      # Без --fix, в отличие от npm run lint: CI не чинит код молча, а падает.
+      - run: npx eslint .
+
+      # Расчётное ядро: переплата должна сходиться с банковскими графиками.
+      - run: npm test
+
+      # Без .htaccess не работают ни редиректы, ни https, ни заголовки — и сервер молчит.
+      - name: Проверить, что .htaccess попал в сборку
+        run: test -s dist/.htaccess
+
+      - name: Подготовить SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.SSH_PORT }}" -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      # --delete убирает с сервера файлы, которых больше нет в сборке. Исключения
+      # обязательны: .well-known и cgi-bin в dist отсутствуют, и без них rsync снёс бы
+      # проверку сертификата вместе с автопродлением SSL.
+      - name: Выгрузить сборку
+        run: |
+          rsync -az --delete \
+            --exclude='.well-known/' \
+            --exclude='cgi-bin/' \
+            -e 'ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/deploy_key' \
+            dist/ '${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.DEPLOY_PATH }}/'
+
+      # Быстрая проверка живого сайта: главная открывается, http уводит на https,
+      # несуществующая страница отдаёт 404.
+      - name: Проверить сайт после выгрузки
+        run: |
+          set -e
+          curl -fsS -o /dev/null https://calcwise.by/
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://calcwise.by/)
+          test "$code" = 301 || { echo "редирект на https не работает: $code"; exit 1; }
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://calcwise.by/no-such-page/)
+          test "$code" = 404 || { echo "404 не работает: $code"; exit 1; }

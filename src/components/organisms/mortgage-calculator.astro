@@ -10,7 +10,7 @@ import CalculatorForm from '@/components/organisms/calculator-form.astro';
 import ResultsSummary from '@/components/organisms/results-summary.astro';
 import ScheduleTable from '@/components/organisms/schedule-table.astro';
 import { buildSchedule } from '@/lib/mortgage';
-import { rowsCountText } from '@/lib/schedule-render';
+import { extraOverpayment, rowsCountText } from '@/lib/schedule-render';
 import type { CalculatorState } from '@/lib/url-state';
 
 interface Props {
@@ -44,7 +44,7 @@ const result = buildSchedule(initial);
         <h2 class="results__heading" id="schedule-heading">График платежей</h2>
         <span class="results__count" data-out="rows-count">{rowsCountText(result)}</span>
       </div>
-      <ScheduleTable result={result} />
+      <ScheduleTable result={result} extra={extraOverpayment(initial)} />
       <Legend
         items={[
           { tone: 'principal', label: 'основной долг' },

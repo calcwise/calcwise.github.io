@@ -4,6 +4,7 @@
  * сюда можно прийти по кнопке «Сравнить» с любой настройкой.
  */
 import { clear, debounce, el, q, qa } from './dom.ts';
+import { guardNumericInputs } from './numeric-input.ts';
 import {
   fmtMoney,
   fmtMonthsAsYears,
@@ -371,6 +372,12 @@ function renderChart(box: HTMLElement, results: Array<ScheduleResult | null>): v
 }
 
 export function initCompare(root: HTMLElement): void {
+  /* Лишний символ в поле не появляется, поле на пару секунд подсвечивается как неверное */
+  guardNumericInputs(root, (input) => {
+    const control = input.closest('.control');
+    control?.classList.add('control--invalid');
+    setTimeout(() => control?.classList.remove('control--invalid'), 2000);
+  });
   const list = q(root, '[data-scenarios]');
   const table = q(root, '[data-compare-table]');
   const chart = q(root, '[data-compare-chart]');

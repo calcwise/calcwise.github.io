@@ -1,0 +1,77 @@
+# Превью-деплой на GitHub Pages с ветки dev: посмотреть правки до выката в бой.
+# Боевой сайт выкладывает production.yml с ветки main.
+#
+# Собирает GitHub, не мы: dist/ лежит в .gitignore и в репозиторий не попадает.
+# Работает только если сайт открывается с КОРНЯ домена, то есть репозиторий назван
+# <владелец>.github.io. В подпути вида github.io/<repo>/ отвалятся абсолютные пути:
+# шрифты из config/fonts.css, иконки и манифест из base-layout, ссылки меню.
+#
+# Разовая настройка в репозитории: Settings → Pages → Source: GitHub Actions.
+#
+# Чего на превью НЕТ по сравнению с боевым Apache: всего из public/.htaccess —
+# 301-редиректов, HSTS, CSP, Cache-Control, сжатия. Pages не позволяет задавать
+# ни заголовки, ни редиректы.
+
+name: Превью на GitHub Pages
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Параллельные деплои Pages конфликтуют: держим один, лишние отменяем.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Деплоим только из репозитория вида <владелец>.github.io: он один отдаёт сайт
+    # с корня домена. В обычном репозитории прогон просто пропускается, а не краснеет.
+    if: endsWith(github.repository, '.github.io')
+    runs-on: ubuntu-latest
+    steps:
+      # Вся история нужна lib/lastmod.ts: даты для карты сайта он берёт из git log,
+      # а на клоне глубиной 1 все страницы получают один и тот же lastmod.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # Превью не должно попасть в поиск: боевой домен calcwise.by, дубли контента
+      # ему только навредят. Заголовок X-Robots-Tag на Pages задать нельзя, поэтому
+      # только robots.txt и мета. Правим сборку, не исходники.
+      - name: Закрыть превью от индексации
+        run: |
+          printf 'User-agent: *\nDisallow: /\n' > dist/robots.txt
+          find dist -name '*.html' -exec sed -i \
+            's|<meta name="robots" content="[^"]*"|<meta name="robots" content="noindex, nofollow"|' {} +
+          # На Pages бесполезен, а публичным текстовым файлом ему лежать незачем.
+          rm -f dist/.htaccess
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -42,8 +42,26 @@ export function describeState(state: CalculatorState, result?: ScheduleResult): 
     const mode = p.mode === 'term' ? 'с сокращением срока' : 'с уменьшением платежа';
     text += `, досрочно ${fmtMoney(p.amount)} ${when} ${mode}`;
   }
+  if (state.interestInArrears) text += ', проценты за предыдущий месяц';
+  const extra = extraOverpayment(state);
+  if (extra > 0) text += `, дополнительная переплата ${fmtMoney(extra)}`;
   return `${text}.`;
 }
+
+/**
+ * Дополнительная переплата сверх графика: то, что банк добавляет к итогу (комиссия,
+ * страховка, лишний платёж в распечатке). Учитывается, только если пользователь её ввёл.
+ */
+export function extraOverpayment(state: CalculatorState): number {
+  return state.extraOverpayment === undefined ? 0 : Math.max(0, state.extraOverpayment);
+}
+
+/** Подсказка для пустого поля: один платёж — у аннуитета ежемесячный, у дифференцированного первый по процентам */
+export function suggestedExtra(state: CalculatorState, result: ScheduleResult): number {
+  return state.type === 'annuity' ? result.summary.regularPayment : (result.rows[0]?.interest ?? 0);
+}
+
+const plusExtra = (value: number, extra: number): number => Math.round((value + extra) * 100) / 100;
 
 /** Главная цифра и подпись к ней */
 export function figureText(r: ScheduleResult): { label: string; value: string; note: string } {
@@ -85,16 +103,14 @@ export interface Stat {
   tone?: 'principal' | 'interest' | 'prepay';
 }
 
-/** Ключевые цифры: всего, переплата, срок, отсрочка, досрочно */
-export function keyStats(r: ScheduleResult): Stat[] {
+/** Ключевые цифры: всего, срок, переплата, отсрочка, досрочно, введённая доплата */
+export function keyStats(r: ScheduleResult, extra = 0): Stat[] {
   const s = r.summary;
   const stats: Stat[] = [
-    { label: 'Всего выплачено', value: fmtMoney(s.totalPaid) },
     {
-      label: 'Переплата по процентам',
-      value: fmtMoney(s.totalInterest),
-      note: `${fmtRate(s.overpaymentPercent)}% от суммы`,
-      tone: 'interest',
+      label: 'Всего выплачено',
+      value: fmtMoney(plusExtra(s.totalPaid, extra)),
+      note: extra > 0 ? 'с дополнительной переплатой' : undefined,
     },
     {
       label: 'Срок',
@@ -103,6 +119,12 @@ export function keyStats(r: ScheduleResult): Stat[] {
         s.actualMonths < s.plannedMonths
           ? `вместо ${fmtMonthsAsYears(s.plannedMonths)} по плану`
           : fmtMonths(s.actualMonths),
+    },
+    {
+      label: 'Переплата по процентам',
+      value: fmtMoney(s.totalInterest),
+      note: `${fmtRate(s.overpaymentPercent)}% от суммы`,
+      tone: 'interest',
     },
   ];
   if (s.graceMonths > 0)
@@ -113,6 +135,8 @@ export function keyStats(r: ScheduleResult): Stat[] {
     });
   if (s.totalPrepaid > 0)
     stats.push({ label: 'Досрочно внесено', value: fmtMoney(s.totalPrepaid), tone: 'prepay' });
+  if (extra > 0)
+    stats.push({ label: 'Дополнительная переплата', value: fmtMoney(extra), tone: 'interest' });
   return stats;
 }
 
@@ -153,11 +177,33 @@ export function closingRowHtml(r: ScheduleResult): string {
   );
 }
 
-export function scheduleRowsHtml(r: ScheduleResult): string {
+/** Нулевая строка графика: введённая дополнительная переплата до первого платежа */
+function extraRowHtml(r: ScheduleResult, extra: number, hidden: (show: boolean) => string): string {
+  if (extra <= 0) return '';
+  const hasPrepay = r.summary.totalPrepaid > 0;
+  const hasRates = r.input.rates.length > 1;
+  return (
+    `<tr class="schedule__row schedule__row--extra">` +
+    `<th scope="row" class="num">0<span class="schedule__tag">доплата</span></th>` +
+    `<td class="num" data-col="rate"${hidden(hasRates)}></td>` +
+    `<td class="num">${fmtMoney(extra)}</td>` +
+    `<td class="num cell--principal">${fmtMoney(0)}</td>` +
+    `<td class="num cell--interest">${fmtMoney(0)}</td>` +
+    `<td class="num cell--prepay" data-col="prepayment"${hidden(hasPrepay)}></td>` +
+    `<td class="num">${fmtMoney(r.summary.amount)}</td>` +
+    `<td class="num">${fmtMoney(extra)}</td>` +
+    `<td class="num">${fmtMoney(0)}</td>` +
+    `<td class="num">${fmtMoney(r.summary.totalPaid)}</td>` +
+    `</tr>`
+  );
+}
+
+export function scheduleRowsHtml(r: ScheduleResult, extra = 0): string {
   const hasPrepay = r.summary.totalPrepaid > 0;
   const hasRates = r.input.rates.length > 1;
   const hidden = (show: boolean) => (show ? '' : ' hidden');
   const closing = closingRowHtml(r);
+  const first = extraRowHtml(r, extra, hidden);
   return r.rows
     .map((row) => {
       const classes = ['schedule__row'];
@@ -172,14 +218,15 @@ export function scheduleRowsHtml(r: ScheduleResult): string {
         `<td class="num cell--interest">${fmtMoney(row.interest)}</td>` +
         `<td class="num cell--prepay" data-col="prepayment"${hidden(hasPrepay)}>${row.prepayment ? fmtMoney(row.prepayment) : ''}</td>` +
         `<td class="num">${fmtMoney(row.balance)}</td>` +
-        `<td class="num">${fmtMoney(row.paidTotal)}</td>` +
+        `<td class="num">${fmtMoney(plusExtra(row.paidTotal, extra))}</td>` +
         `<td class="num">${fmtMoney(row.paidInterest)}</td>` +
         `<td class="num">${fmtMoney(row.remainingTotal)}</td>` +
         `</tr>`
       );
     })
     .join('')
-    .concat(closing);
+    .concat(closing)
+    .replace(/^/, first);
 }
 
 export function yearsRowsHtml(r: ScheduleResult): string {
@@ -235,7 +282,7 @@ export function shareText(r: ScheduleResult): {
 const byOut = (root: ParentNode, key: string): HTMLElement | null =>
   root.querySelector<HTMLElement>(`[data-out="${key}"]`);
 
-export function renderScheduleTable(root: HTMLElement, r: ScheduleResult): void {
+export function renderScheduleTable(root: HTMLElement, r: ScheduleResult, extra = 0): void {
   const hasPrepay = r.summary.totalPrepaid > 0;
   const hasRates = r.input.rates.length > 1;
   root
@@ -243,12 +290,12 @@ export function renderScheduleTable(root: HTMLElement, r: ScheduleResult): void 
     .forEach((c) => (c.hidden = !hasPrepay));
   root.querySelectorAll<HTMLElement>('[data-col="rate"]').forEach((c) => (c.hidden = !hasRates));
   const body = byOut(root, 'schedule-body');
-  if (body) body.innerHTML = scheduleRowsHtml(r);
+  if (body) body.innerHTML = scheduleRowsHtml(r, extra);
   const set = (key: string, text: string) => {
     const node = byOut(root, key);
     if (node) node.textContent = text;
   };
-  set('foot-paid', fmtMoney(r.summary.totalPaid));
+  set('foot-paid', fmtMoney(plusExtra(r.summary.totalPaid, extra)));
   set('foot-principal', fmtMoney(r.summary.totalPrincipal));
   set('foot-interest', fmtMoney(r.summary.totalInterest));
   set('foot-prepay', hasPrepay ? fmtMoney(r.summary.totalPrepaid) : '');
@@ -275,7 +322,7 @@ export function renderKeyFigures(
   set('figure-label', figure.label);
   set('figure-note', figure.note);
   const stats = byOut(root, 'stats');
-  if (stats) stats.innerHTML = statsHtml(keyStats(r));
+  if (stats) stats.innerHTML = statsHtml(keyStats(r, extraOverpayment(state)));
   const share = shareText(r);
   const bar = byOut(root, 'share');
   if (bar) {

@@ -4,7 +4,7 @@
  */
 
 /** Бренд добавляется только в <title>, в H1 его нет */
-const TITLE_SUFFIX = ' — Amortize';
+const TITLE_SUFFIX = ' — Calcwise';
 /** Дальше поисковики обрезают заголовок многоточием */
 const TITLE_MAX = 60;
 const DESCRIPTION_MAX = 160;

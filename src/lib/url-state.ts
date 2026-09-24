@@ -8,6 +8,8 @@
  *   r=15.4          ставка; периоды через запятую как «ставка@месяц»: r=5@1,15@13
  *   g=1x12,61x3     отсрочки «начало x месяцев»
  *   ge=1            отсрочка продлевает срок
+ *   ia=1            проценты платятся за предыдущий месяц
+ *   x=3396.21       дополнительная переплата; без ключа — один платёж по умолчанию
  *   p=12:500000:t:o,1:5000:t:m:60   досрочки «месяц:сумма:режим:повтор[:до]»
  *   y=1             срок показан в годах
  */
@@ -17,6 +19,11 @@ export interface CalculatorState extends ScheduleInput {
   amount: number;
   /** Срок в форме показан в годах, а не месяцах */
   termInYears: boolean;
+  /**
+   * Дополнительная переплата сверх графика, введённая пользователем.
+   * undefined — значение по умолчанию (см. extraOverpayment в schedule-render.ts)
+   */
+  extraOverpayment?: number;
 }
 
 export const DEFAULT_STATE: CalculatorState = {
@@ -26,6 +33,7 @@ export const DEFAULT_STATE: CalculatorState = {
   rates: [{ fromMonth: 1, ratePercent: 15.4 }],
   gracePeriods: [],
   graceExtendsTerm: false,
+  interestInArrears: false,
   prepayments: [],
   termInYears: true,
 };
@@ -64,6 +72,8 @@ export function encodeState(state: CalculatorState): URLSearchParams {
         .join(','),
     );
   }
+  if (state.interestInArrears) params.set('ia', '1');
+  if (state.extraOverpayment !== undefined) params.set('x', num(state.extraOverpayment));
   if (!state.termInYears) params.set('y', '0');
   return params;
 }
@@ -147,6 +157,10 @@ export function decodeState(
       .filter((x): x is Prepayment => x !== null);
   }
 
+  state.interestInArrears = params.get('ia') === '1';
+  const x = number('x');
+  if (x !== null && x >= 0) state.extraOverpayment = x;
+  else delete state.extraOverpayment;
   if (params.get('y') === '0') state.termInYears = false;
   return state;
 }

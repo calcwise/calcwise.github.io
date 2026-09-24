@@ -8,7 +8,7 @@ import Figure from '@/components/molecules/figure.astro';
 import StatList from '@/components/molecules/stat-list.astro';
 import ActionsMenu from '@/components/organisms/actions-menu.astro';
 import type { ScheduleResult } from '@/lib/mortgage';
-import { describeState, figureText, keyStats } from '@/lib/schedule-render';
+import { describeState, extraOverpayment, figureText, keyStats } from '@/lib/schedule-render';
 import type { CalculatorState } from '@/lib/url-state';
 
 interface Props {
@@ -35,7 +35,12 @@ const actions = [
   <p class="summary__conditions num" data-out="conditions">{describeState(initial, result)}</p>
   <div class="summary__row">
     <Figure label={figure.label} value={figure.value} note={figure.note} class="summary__figure" />
-    <StatList stats={keyStats(result)} inline out="stats" class="summary__stats" />
+    <StatList
+      stats={keyStats(result, extraOverpayment(initial))}
+      inline
+      out="stats"
+      class="summary__stats"
+    />
     <ActionsMenu items={actions} class="summary__menu" />
   </div>
 </header>

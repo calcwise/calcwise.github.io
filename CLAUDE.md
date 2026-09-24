@@ -1,4 +1,4 @@
-# amortize.by
+# calcwise.by
 
 Free loan calculators for Belarus (and Russia): mortgage schedule today, housing cooperative
 later. All user-facing copy is Russian; code and this file are English. No currency is shown
@@ -74,8 +74,26 @@ what makes totals match bank statements (verified: 250 000 at 15.4% for 239 mont
 12-month grace period → overpayment 559 439,55). Payment is recomputed on the remaining
 balance and remaining paying months after: a rate-period change, the end of a grace period,
 a prepayment in `payment` mode. `term`-mode prepayments keep the payment; the loan simply ends
-earlier. Tests in `src/lib/mortgage/schedule.test.ts` pin all of this — extend them with any
-new behaviour.
+earlier.
+
+`interestInArrears` (URL `ia=1`) reproduces bank schedules that charge interest for the
+_previous_ month: row 1 carries interest on the full amount (the issuance month), row n carries
+interest on the opening balance of row n−1, and the last month's interest is outside the
+schedule. Principal parts and balances are unchanged. Verified against a real differentiated
+schedule: 250 000 at 15.4%, 239 months, 12-month grace → interest 407 444,20, total
+657 444,20. For annuity the payment is solved from the shifted recurrence so the debt closes
+exactly in term (`annuityPaymentArrears`); no bank annuity schedule of this kind has been
+verified yet (the same bank's annuity schedule has no shift and matches the default mode).
+Tests in `src/lib/mortgage/schedule.test.ts` pin all of this — extend them with any new
+behaviour.
+
+"Дополнительная переплата" (`CalculatorState.extraOverpayment`, URL `x=`) is a user-entered
+amount outside the engine: what the bank adds on top of the schedule. It counts only when
+entered (`extraOverpayment()` in `lib/schedule-render.ts`; `suggestedExtra()` only feeds the
+field placeholder: the regular payment for annuity, the first interest payment for
+differentiated). When set it becomes row 0 of the schedule table, is added to "Всего
+выплачено" and the table footer, and is the last key figure; it never touches interest or the
+engine.
 
 ## Styling
 

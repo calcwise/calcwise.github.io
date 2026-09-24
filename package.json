@@ -2,7 +2,7 @@
   "private": true,
   "version": "2.0.0",
   "type": "module",
-  "name": "amortize",
+  "name": "calcwise",
   "description": "Калькулятор кредитов: ипотека и кооператив. График платежей по банковской методике.",
   "engines": {
     "node": ">=22.12"

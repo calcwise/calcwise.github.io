@@ -14,6 +14,9 @@
 .stat {
   display: grid;
   gap: 2px;
+  /* Строки не растягиваются на высоту соседа: суммы во всех ячейках на одной линии,
+     даже если у ячейки нет примечания */
+  align-content: start;
   padding-left: var(--space-3);
   border-left: 2px solid var(--color-rule);
 }
@@ -58,18 +61,15 @@
   border-left: 0;
 }
 
-/* От 768px — поток по содержимому: ячейка расширяется под длинное значение
-   («19 лет 11 месяцев»), а не наезжает на соседа; слишком длинное переносится */
+/* От 768px — ровные колонки одной ширины: сколько влезет по 12rem, чтобы
+   «19 лет 11 месяцев» помещалось в одну строку, а ряды выравнивались друг под другом */
 @media (min-width: 768px) {
   .stats--inline {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3) var(--space-6);
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    gap: var(--space-4) var(--space-5);
   }
 
   .stats--inline .stat {
-    flex: 0 1 auto;
     min-width: 0;
-    max-width: 16rem;
   }
 }

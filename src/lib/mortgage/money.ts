@@ -53,6 +53,34 @@ export function annuityPayment(balance: Big, rate: Big, months: number): Big {
   return trim(balance.times(rate).times(factor).div(factor.minus(1)));
 }
 
+/**
+ * Аннуитетный платёж при процентах «за предыдущий месяц»: остаток после m платежей
+ * B_m = B_{m−1} − P + r·B_{m−2}, в первом месяце проценты уже известны (prevOpening·prevRate).
+ * Остаток линеен по P: B_n = b_n − P·k_n, поэтому P = b_n / k_n закрывает долг ровно за n месяцев.
+ */
+export function annuityPaymentArrears(
+  balance: Big,
+  prevOpening: Big,
+  prevRate: Big,
+  rate: Big,
+  months: number,
+): Big {
+  if (months <= 0) return balance;
+  let bPrev = balance; // b_{m−2}
+  let kPrev = new Big(0);
+  let b = trim(balance.plus(prevOpening.times(prevRate))); // b_1
+  let k = new Big(1);
+  for (let m = 2; m <= months; m++) {
+    const bNext = trim(b.plus(rate.times(bPrev)));
+    const kNext = trim(k.plus(1).plus(rate.times(kPrev)));
+    bPrev = b;
+    kPrev = k;
+    b = bNext;
+    k = kNext;
+  }
+  return trim(b.div(k));
+}
+
 /** Число из строки с пробелами и запятой: «3 000 000,50» → 3000000.5. NaN, если не число */
 export function parseAmount(raw: string | number): number {
   if (typeof raw === 'number') return raw;

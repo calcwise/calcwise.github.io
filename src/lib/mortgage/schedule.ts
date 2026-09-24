@@ -5,6 +5,10 @@
  * начисляются на остаток долга на начало месяца, график считается с полной
  * точностью, округление до копеек только при выводе (см. money.ts).
  *
+ * С interestInArrears проценты сдвинуты на месяц позже: в строке n они начислены
+ * на остаток на начало месяца n−1 по ставке того месяца, в первой строке — на сумму
+ * кредита за месяц выдачи. Остатки и части в счёт долга при этом не меняются.
+ *
  * События, после которых платёж пересчитывается на остаток и оставшийся срок:
  *  - смена ставки (новый период из rates);
  *  - окончание отсрочки (в отсрочку платятся только проценты, долг не меняется);
@@ -12,7 +16,15 @@
  * Досрочное погашение «уменьшить срок» платёж не трогает: долг закрывается раньше,
  * а при следующем пересчёте срок берётся тот, который подразумевает текущий платёж.
  */
-import { Big, MONTHS_IN_YEAR, annuityPayment, monthlyRate, toMoney, trim } from './money.ts';
+import {
+  Big,
+  MONTHS_IN_YEAR,
+  annuityPayment,
+  annuityPaymentArrears,
+  monthlyRate,
+  toMoney,
+  trim,
+} from './money.ts';
 import type {
   Prepayment,
   ScheduleInput,
@@ -101,6 +113,10 @@ export function buildSchedule(rawInput: ScheduleInput): ScheduleResult {
   /* После досрочки «в срок» оставшийся срок задаёт платёж, а не план */
   let termShortened = false;
   let prevRatePercent: number | null = null;
+  /* Для процентов «за предыдущий месяц»: остаток на начало прошлого месяца и его ставка.
+     До первого платежа это сумма кредита и ставка первого месяца — месяц выдачи */
+  let prevOpening = amount;
+  let prevRate = monthlyRate(rateAt(1));
 
   for (let month = 1; month <= total; month++) {
     const ratePercent = rateAt(month);
@@ -122,13 +138,19 @@ export function buildSchedule(rawInput: ScheduleInput): ScheduleResult {
                 Math.max(1, Math.ceil(Number(balance.div(fixedPrincipal).toString()) - 1e-9)),
               );
       }
-      if (input.type === 'annuity') fixedPayment = annuityPayment(balance, rate, remaining);
-      else fixedPrincipal = trim(balance.div(remaining));
+      if (input.type === 'annuity') {
+        fixedPayment = input.interestInArrears
+          ? annuityPaymentArrears(balance, prevOpening, prevRate, rate, remaining)
+          : annuityPayment(balance, rate, remaining);
+      } else fixedPrincipal = trim(balance.div(remaining));
       segmentRate = rate;
       needRecalc = false;
     }
 
-    const interest = trim(balance.times(rate));
+    const opening = balance;
+    const interest = input.interestInArrears
+      ? trim(prevOpening.times(prevRate))
+      : trim(balance.times(rate));
     let principal: Big;
     let payment: Big;
 
@@ -163,8 +185,11 @@ export function buildSchedule(rawInput: ScheduleInput): ScheduleResult {
              сейчас — по остатку до досрочки и оставшимся платёжным месяцам. */
           if (segmentRate === null) {
             const remaining = Math.max(1, payingLeft[month + 1] ?? 0);
-            if (input.type === 'annuity') fixedPayment = annuityPayment(balance, rate, remaining);
-            else fixedPrincipal = trim(balance.div(remaining));
+            if (input.type === 'annuity') {
+              fixedPayment = input.interestInArrears
+                ? annuityPaymentArrears(balance, balance, rate, rate, remaining)
+                : annuityPayment(balance, rate, remaining);
+            } else fixedPrincipal = trim(balance.div(remaining));
             segmentRate = rate;
             needRecalc = false;
           }
@@ -173,6 +198,8 @@ export function buildSchedule(rawInput: ScheduleInput): ScheduleResult {
       }
     }
 
+    prevOpening = opening;
+    prevRate = rate;
     balance = trim(balance.minus(principal).minus(prepayment));
     /* Хвост точности после деления — не копейки, а артефакт: гасим его последним платежом */
     if (balance.abs().lt(ZERO)) {
