@@ -28,7 +28,7 @@ test('адрес читается человеком: без %3A, %2C и %40, р
   const query = stateQuery(state);
   assert.equal(
     query,
-    'a=180000&n=239&t=diff&r=5@1,15.4@13&g=1x12&p=1:4000:payment:monthly:budget,24:10000:term:once,3:500:term:yearly:60&ia=1&x=3208.33&y=0',
+    'amount=180000&months=239&type=diff&rate=5@1,15.4@13&grace=1x12&prepay=1:4000:payment:monthly:budget,24:10000:term:once,3:500:term:yearly:60&interest=previous-month&extra=3208.33&unit=months',
   );
   assert.ok(!/%/.test(query));
 });
@@ -37,7 +37,11 @@ test('адрес разбирается обратно в то же состоя
   assert.deepEqual(decodeState(new URLSearchParams(stateQuery(state))), state);
 });
 
-test('старые короткие формы досрочек читаются', () => {
-  const old = decodeState(new URLSearchParams('a=1&p=1:4000:p:m::b,24:10000:t:o,3:500:t:y:60'));
-  assert.deepEqual(old.prepayments, state.prepayments);
+test('старые короткие ключи и формы досрочек читаются', () => {
+  const old = decodeState(
+    new URLSearchParams(
+      'a=180000&n=239&t=diff&r=5@1,15.4@13&g=1x12&p=1:4000:p:m::b,24:10000:t:o,3:500:t:y:60&ia=1&x=3208.33&y=0',
+    ),
+  );
+  assert.deepEqual(old, state);
 });

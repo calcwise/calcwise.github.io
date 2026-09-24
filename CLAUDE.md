@@ -75,10 +75,10 @@ what makes totals match bank statements (verified: 250 000 at 15.4% for 239 mont
 balance and remaining paying months after: a rate-period change, the end of a grace period,
 a prepayment in `payment` mode. `term`-mode prepayments keep the payment; the loan simply ends
 earlier. A prepayment with `kind: 'budget'` is "всего в месяц": the amount includes the
-scheduled payment, and only the remainder above it (if any) goes to principal; URL flag `b` in
-the sixth position of `p=`.
+scheduled payment, and only the remainder above it (if any) goes to principal; URL word `budget` in
+`prepay=`.
 
-`interestInArrears` (URL `ia=1`) reproduces bank schedules that charge interest for the
+`interestInArrears` (URL `interest=previous-month`) reproduces bank schedules that charge interest for the
 _previous_ month: row 1 carries interest on the full amount (the issuance month), row n carries
 interest on the opening balance of row n−1, and the last month's interest is outside the
 schedule. Principal parts and balances are unchanged. Verified against a real differentiated
@@ -89,7 +89,7 @@ verified yet (the same bank's annuity schedule has no shift and matches the defa
 Tests in `src/lib/mortgage/schedule.test.ts` pin all of this — extend them with any new
 behaviour.
 
-"Дополнительная переплата" (`CalculatorState.extraOverpayment`, URL `x=`) is a user-entered
+"Дополнительная переплата" (`CalculatorState.extraOverpayment`, URL `extra=`) is a user-entered
 amount outside the engine: what the bank adds on top of the schedule. It counts only when
 entered (`extraOverpayment()` in `lib/schedule-render.ts`; `suggestedExtra()` only feeds the
 field placeholder: the regular payment for annuity, the first interest payment for

@@ -619,7 +619,7 @@ export function initCalculator(root: HTMLElement): void {
     ? (JSON.parse(root.dataset.initial) as CalculatorState)
     : DEFAULT_STATE;
   const fromUrl = new URLSearchParams(location.search);
-  const hasUrlState = fromUrl.has('a') || fromUrl.has('n') || fromUrl.has('r');
+  const hasUrlState = ['amount', 'months', 'rate', 'a', 'n', 'r'].some((key) => fromUrl.has(key));
   const pageHasPreset = root.dataset.preset === '1';
   const initial = hasUrlState
     ? decodeState(fromUrl, pageInitial)

@@ -1,20 +1,23 @@
 /*
  * Состояние калькулятора в адресной строке: расчёт можно отправить ссылкой
- * и вернуться к нему. Ключи короткие, значения человекочитаемые.
+ * и вернуться к нему. Ключи и значения — слова, чтобы адрес читался человеком.
  *
- *   a=250000        сумма
- *   n=239           срок в месяцах
- *   t=annuity|diff  тип
- *   r=15.4          ставка; периоды через запятую как «ставка@месяц»: r=5@1,15@13
- *   g=1x12,61x3     отсрочки «начало x месяцев»
- *   ge=1            отсрочка продлевает срок
- *   ia=1            проценты платятся за предыдущий месяц
- *   x=3396.21       дополнительная переплата; без ключа — один платёж по умолчанию
- *   p=12:500000:term:once,1:5000:term:monthly:60:budget
- *                   досрочки «месяц:сумма:режим:повтор», дальше в любом порядке число —
- *                   последний месяц повторов, слово budget — «всего в месяц» (сумма
- *                   включает плановый платёж). Старые короткие формы t/p, o/m/y, b читаются.
- *   y=1             срок показан в годах
+ *   amount=250000            сумма
+ *   months=239               срок в месяцах
+ *   type=annuity|diff        тип платежей
+ *   rate=15.4                ставка; периоды через запятую как «ставка@месяц»: rate=5@1,15@13
+ *   grace=1x12,61x3          отсрочки «с месяца x длительность»
+ *   grace-extends=1          отсрочка продлевает срок
+ *   interest=previous-month  проценты платятся за предыдущий месяц
+ *   extra=3396.21            дополнительная переплата; без ключа её нет
+ *   prepay=12:500000:term:once,1:5000:term:monthly:60:budget
+ *                            досрочки «месяц:сумма:режим:повтор», дальше в любом порядке
+ *                            число — последний месяц повторов, слово budget — «всего в
+ *                            месяц» (сумма включает плановый платёж)
+ *   unit=months              срок в форме показан в месяцах (по умолчанию в годах)
+ *
+ * Старые короткие ключи (a, n, t, r, g, ge, ia, x, p, y) и короткие формы досрочек
+ * (t/p, o/m/y, b) по-прежнему читаются: ссылки, разосланные раньше, не ломаются.
  */
 import type { Prepayment, ScheduleInput } from './mortgage/index.ts';
 
@@ -60,22 +63,22 @@ const num = (n: number) => String(Math.round(n * 100) / 100);
 
 export function encodeState(state: CalculatorState): URLSearchParams {
   const params = new URLSearchParams();
-  params.set('a', num(state.amount));
-  params.set('n', String(state.months));
-  params.set('t', state.type);
+  params.set('amount', num(state.amount));
+  params.set('months', String(state.months));
+  params.set('type', state.type);
   params.set(
-    'r',
+    'rate',
     state.rates.length === 1 && state.rates[0]!.fromMonth === 1
       ? num(state.rates[0]!.ratePercent)
       : state.rates.map((r) => `${num(r.ratePercent)}@${r.fromMonth}`).join(','),
   );
   if (state.gracePeriods?.length) {
-    params.set('g', state.gracePeriods.map((g) => `${g.start}x${g.months}`).join(','));
-    if (state.graceExtendsTerm) params.set('ge', '1');
+    params.set('grace', state.gracePeriods.map((g) => `${g.start}x${g.months}`).join(','));
+    if (state.graceExtendsTerm) params.set('grace-extends', '1');
   }
   if (state.prepayments?.length) {
     params.set(
-      'p',
+      'prepay',
       state.prepayments
         .map((p) => {
           const parts = [String(p.month), num(p.amount), p.mode, p.repeat];
@@ -86,9 +89,9 @@ export function encodeState(state: CalculatorState): URLSearchParams {
         .join(','),
     );
   }
-  if (state.interestInArrears) params.set('ia', '1');
-  if (state.extraOverpayment !== undefined) params.set('x', num(state.extraOverpayment));
-  if (!state.termInYears) params.set('y', '0');
+  if (state.interestInArrears) params.set('interest', 'previous-month');
+  if (state.extraOverpayment !== undefined) params.set('extra', num(state.extraOverpayment));
+  if (!state.termInYears) params.set('unit', 'months');
   return params;
 }
 
@@ -103,21 +106,23 @@ export function decodeState(
     gracePeriods: [...(fallback.gracePeriods ?? [])],
     prepayments: [...(fallback.prepayments ?? [])],
   };
-  const number = (key: string) => {
-    const raw = params.get(key);
+  /* Полный ключ в приоритете, короткий — для старых ссылок */
+  const get = (key: string, short: string) => params.get(key) ?? params.get(short);
+  const number = (key: string, short: string) => {
+    const raw = get(key, short);
     if (raw === null) return null;
     const n = Number(raw.replace(',', '.'));
     return Number.isFinite(n) ? n : null;
   };
 
-  const a = number('a');
+  const a = number('amount', 'a');
   if (a !== null && a > 0) state.amount = a;
-  const n = number('n');
+  const n = number('months', 'n');
   if (n !== null && Number.isInteger(n) && n > 0) state.months = n;
-  const t = params.get('t');
+  const t = get('type', 't');
   if (t === 'annuity' || t === 'diff') state.type = t;
 
-  const r = params.get('r');
+  const r = get('rate', 'r');
   if (r) {
     const rates = r
       .split(',')
@@ -136,7 +141,7 @@ export function decodeState(
     if (rates.length && rates[0]!.fromMonth === 1) state.rates = rates;
   }
 
-  const g = params.get('g');
+  const g = get('grace', 'g');
   if (g !== null) {
     state.gracePeriods = g
       .split(',')
@@ -149,10 +154,10 @@ export function decodeState(
         (x) =>
           Number.isInteger(x.start) && x.start >= 1 && Number.isInteger(x.months) && x.months >= 1,
       );
-    state.graceExtendsTerm = params.get('ge') === '1';
+    state.graceExtendsTerm = get('grace-extends', 'ge') === '1';
   }
 
-  const p = params.get('p');
+  const p = get('prepay', 'p');
   if (p !== null) {
     state.prepayments = p
       .split(',')
@@ -174,11 +179,12 @@ export function decodeState(
       .filter((x): x is Prepayment => x !== null);
   }
 
-  state.interestInArrears = params.get('ia') === '1';
-  const x = number('x');
+  const interest = get('interest', 'ia');
+  state.interestInArrears = interest === 'previous-month' || interest === '1';
+  const x = number('extra', 'x');
   if (x !== null && x >= 0) state.extraOverpayment = x;
   else delete state.extraOverpayment;
-  if (params.get('y') === '0') state.termInYears = false;
+  if (get('unit', 'y') === 'months' || params.get('y') === '0') state.termInYears = false;
   return state;
 }
 
