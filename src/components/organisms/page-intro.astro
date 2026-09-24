@@ -1,0 +1,56 @@
+---
+/* Заголовок страницы и вводный абзац: одна колонка, левое выравнивание */
+interface Props {
+  title: string;
+  lead?: string;
+  /** Надзаголовок: раздел, к которому относится страница */
+  section?: string;
+  /** Компактный вариант для страниц с инструментом: меньше заголовок и отступ */
+  compact?: boolean;
+}
+const { title, lead, section, compact = false } = Astro.props;
+---
+
+<header class:list={['intro', { 'intro--compact': compact }]}>
+  {section && <p class="intro__section">{section}</p>}
+  <h1 class="intro__title">{title}</h1>
+  {lead && <p class="intro__lead">{lead}</p>}
+  <slot />
+</header>
+
+<style>
+  .intro {
+    display: grid;
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
+    max-width: var(--measure);
+  }
+
+  .intro--compact {
+    gap: var(--space-2);
+    margin-bottom: var(--space-5);
+  }
+
+  .intro__section {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .intro__title {
+    font-size: var(--text-2xl);
+  }
+
+  .intro--compact .intro__title {
+    font-size: var(--text-xl);
+  }
+
+  .intro__lead {
+    font-size: var(--text-lg);
+    color: var(--color-text-muted);
+    line-height: var(--leading-snug);
+  }
+
+  .intro--compact .intro__lead {
+    font-size: var(--text-base);
+  }
+</style>

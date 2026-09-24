@@ -1,0 +1,49 @@
+---
+import BaseLayout from '@/components/templates/base-layout.astro';
+import Button from '@/components/atoms/button.astro';
+import Container from '@/components/atoms/container.astro';
+---
+
+<BaseLayout title="Страница не найдена" description="Такой страницы нет." path="/404/" noindex>
+  <Container narrow>
+    <div class="not-found">
+      <p class="not-found__code num" aria-hidden="true">404</p>
+      <h1 class="not-found__title">Такой страницы нет</h1>
+      <p class="not-found__text">Адрес мог измениться. Калькуляторы на месте: выберите нужный.</p>
+      <div class="not-found__actions">
+        <Button href="/mortgage/">Калькулятор ипотеки</Button>
+        <Button href="/" variant="outline">На главную</Button>
+      </div>
+    </div>
+  </Container>
+</BaseLayout>
+
+<style>
+  .not-found {
+    display: grid;
+    gap: var(--space-4);
+    justify-items: start;
+    padding-block: var(--space-8);
+  }
+
+  .not-found__code {
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    color: var(--color-rule-strong);
+    line-height: 1;
+  }
+
+  .not-found__title {
+    font-size: var(--text-2xl);
+  }
+
+  .not-found__text {
+    color: var(--color-text-muted);
+  }
+
+  .not-found__actions {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+</style>

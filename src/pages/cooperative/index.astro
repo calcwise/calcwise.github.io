@@ -1,0 +1,49 @@
+---
+import BaseLayout from '@/components/templates/base-layout.astro';
+import Button from '@/components/atoms/button.astro';
+import Container from '@/components/atoms/container.astro';
+import PageIntro from '@/components/organisms/page-intro.astro';
+import { siteConfig } from '@/config/site';
+import { breadcrumbsJsonLd } from '@/lib/seo';
+
+const path = '/cooperative/';
+const title = 'Калькулятор кредита в кооперативе';
+const description =
+  'Расчёт платежей по программе жилищного кооператива: паевые взносы, членские взносы и график накопления. Раздел готовится к запуску.';
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  path={path}
+  jsonLd={[
+    breadcrumbsJsonLd(siteConfig.siteUrl, [
+      { name: 'Главная', path: '/' },
+      { name: 'Кооператив', path },
+    ]),
+  ]}
+>
+  <Container narrow>
+    <PageIntro
+      section="Кооператив"
+      title={title}
+      lead="Здесь появится расчёт для жилищных кооперативов: паи, членские и ежемесячные взносы, момент перехода ко второму этапу. Раздел в работе."
+    />
+    <div class="soon">
+      <p>Пока считайте банковский кредит — калькулятор ипотеки уже работает полностью.</p>
+      <Button href="/mortgage/">Открыть калькулятор ипотеки</Button>
+    </div>
+  </Container>
+</BaseLayout>
+
+<style>
+  .soon {
+    display: grid;
+    gap: var(--space-4);
+    justify-items: start;
+    padding: var(--space-6);
+    border: 1px dashed var(--color-rule-strong);
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+  }
+</style>

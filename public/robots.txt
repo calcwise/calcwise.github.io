@@ -1,0 +1,9 @@
+# Сайт бесплатный и без рекламы: поисковикам и AI-краулерам открыто всё.
+User-agent: *
+Allow: /
+
+# Bytespider агрессивно обходит сайты и не приносит трафика
+User-agent: Bytespider
+Disallow: /
+
+Sitemap: https://amortize.by/sitemap.xml

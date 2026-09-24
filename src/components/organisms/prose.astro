@@ -1,0 +1,84 @@
+---
+/* Текстовые разделы под калькулятором и на справочных страницах */
+interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
+---
+
+<div class:list={['prose', className]}>
+  <slot />
+</div>
+
+<style is:global>
+  .prose {
+    max-width: var(--measure);
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  .prose h2 {
+    font-size: var(--text-xl);
+    margin-top: var(--space-5);
+  }
+
+  .prose h3 {
+    font-size: var(--text-lg);
+    margin-top: var(--space-3);
+  }
+
+  .prose p,
+  .prose li {
+    color: var(--color-text);
+  }
+
+  .prose ul,
+  .prose ol {
+    padding-left: 1.25em;
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .prose a {
+    color: var(--color-ink);
+  }
+
+  .prose .formula {
+    font-size: var(--text-lg);
+    padding: var(--space-4) var(--space-5);
+    border-left: 3px solid var(--color-ink);
+    background: var(--color-paper);
+    font-variant-numeric: tabular-nums;
+    overflow-x: auto;
+  }
+
+  .prose .formula sup {
+    font-size: 0.7em;
+  }
+
+  .prose table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  .prose th,
+  .prose td {
+    text-align: left;
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-rule);
+    vertical-align: top;
+  }
+
+  .prose th {
+    color: var(--color-text-muted);
+    font-weight: 500;
+  }
+
+  .prose .note {
+    padding: var(--space-4) var(--space-5);
+    border-radius: var(--radius-md);
+    background: var(--color-paper-2);
+    font-size: var(--text-sm);
+  }
+</style>

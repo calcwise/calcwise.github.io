@@ -1,0 +1,193 @@
+---
+import BaseLayout from '@/components/templates/base-layout.astro';
+import Button from '@/components/atoms/button.astro';
+import Container from '@/components/atoms/container.astro';
+import Disclaimer from '@/components/organisms/disclaimer.astro';
+import PageIntro from '@/components/organisms/page-intro.astro';
+import Prose from '@/components/organisms/prose.astro';
+import { siteConfig } from '@/config/site';
+import { breadcrumbsJsonLd, webApplicationJsonLd } from '@/lib/seo';
+
+const path = '/mortgage/compare/';
+const title = 'Сравнение вариантов ипотеки';
+const description =
+  'Сравните до трёх вариантов кредита рядом: разные банки, ставки, сроки, аннуитет и дифференцированный график. Платёж, переплата, срок и кривая остатка долга.';
+const jsonLd = [
+  webApplicationJsonLd({
+    name: title,
+    url: `${siteConfig.siteUrl}${path}`,
+    description,
+    siteUrl: siteConfig.siteUrl,
+    features: [
+      'До трёх сценариев рядом',
+      'Лучшее значение подсвечено',
+      'Общий график остатка долга',
+    ],
+  }),
+  breadcrumbsJsonLd(siteConfig.siteUrl, [
+    { name: 'Главная', path: '/' },
+    { name: 'Ипотека', path: '/mortgage/' },
+    { name: 'Сравнение', path },
+  ]),
+];
+---
+
+<BaseLayout title={title} description={description} path={path} jsonLd={jsonLd}>
+  <Container>
+    <PageIntro
+      section="Ипотека"
+      title={title}
+      lead="Поставьте рядом два или три варианта: предложения разных банков, 15 и 20 лет, аннуитет и дифференцированный график. В каждой строке таблицы подсвечен лучший вариант."
+    />
+
+    <section class="compare" data-compare>
+      <div class="compare__scenarios" data-scenarios></div>
+      <div class="compare__add no-print">
+        <Button variant="outline" data-add-scenario>Добавить сценарий</Button>
+      </div>
+      <div class="compare__result">
+        <div class="compare__table-wrap" data-compare-table></div>
+        <section class="compare__chart" aria-labelledby="compare-chart-heading">
+          <h2 class="compare__subheading" id="compare-chart-heading">Остаток долга по сценариям</h2>
+          <div class="chart-box" data-compare-chart></div>
+          <p class="legend" data-legend></p>
+        </section>
+      </div>
+    </section>
+
+    <Prose class="compare__text">
+      <h2>Как сравнивать честно</h2>
+      <p>
+        Сравнивайте варианты с одинаковой суммой. Разный срок сам по себе меняет и платёж, и
+        переплату, поэтому смотрите на обе цифры: короткий срок дешевле в процентах, но тяжелее для
+        бюджета каждый месяц.
+      </p>
+      <p>
+        Переплата в процентах от суммы удобна, когда суммы разные. Фактический срок показывает,
+        когда кредит закроется с учётом досрочных погашений.
+      </p>
+    </Prose>
+    <Disclaimer />
+  </Container>
+</BaseLayout>
+
+<script>
+  import { initCompare } from '@/lib/compare-ui';
+  document.querySelectorAll<HTMLElement>('[data-compare]').forEach(initCompare);
+</script>
+
+<style is:global>
+  .compare {
+    display: grid;
+    gap: var(--space-5);
+  }
+
+  .compare__scenarios {
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  .scenario {
+    display: grid;
+    gap: var(--space-4);
+    padding: var(--space-5);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md);
+    background: var(--color-paper);
+    min-width: 0;
+  }
+
+  .scenario__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .scenario__title {
+    font-size: var(--text-lg);
+  }
+
+  .scenario__pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+
+  .scenario__hint {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .compare__result {
+    display: grid;
+    gap: var(--space-6);
+  }
+
+  .compare__table-wrap {
+    overflow: auto;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md);
+    background: var(--color-paper);
+  }
+
+  .compare__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  .compare__table th,
+  .compare__table td {
+    padding: var(--space-3) var(--space-4);
+    text-align: right;
+    border-bottom: 1px solid var(--color-rule);
+    white-space: nowrap;
+  }
+
+  .compare__table thead th {
+    color: var(--color-text-muted);
+    font-weight: 500;
+    font-size: var(--text-xs);
+  }
+
+  .compare__table tbody th {
+    text-align: left;
+    font-weight: 500;
+  }
+
+  .compare__best {
+    color: var(--color-principal);
+    font-weight: 600;
+  }
+
+  .compare__empty,
+  .compare__verdict {
+    padding: var(--space-4);
+    font-size: var(--text-sm);
+  }
+
+  .compare__verdict {
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .compare__chart {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .compare__subheading {
+    font-size: var(--text-base);
+    font-weight: 600;
+  }
+
+  .compare__text {
+    margin-top: var(--space-8);
+  }
+
+  @media (min-width: 768px) {
+    .compare__scenarios {
+      grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    }
+  }
+</style>

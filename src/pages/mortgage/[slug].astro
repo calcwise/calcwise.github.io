@@ -1,0 +1,64 @@
+---
+import BaseLayout from '@/components/templates/base-layout.astro';
+import Container from '@/components/atoms/container.astro';
+import Disclaimer from '@/components/organisms/disclaimer.astro';
+import MortgageCalculator from '@/components/organisms/mortgage-calculator.astro';
+import PageIntro from '@/components/organisms/page-intro.astro';
+import Prose from '@/components/organisms/prose.astro';
+import { siteConfig } from '@/config/site';
+import { mortgagePages, pageState } from '@/lib/mortgage-pages';
+import { breadcrumbsJsonLd, webApplicationJsonLd } from '@/lib/seo';
+
+export function getStaticPaths() {
+  return mortgagePages.map((page) => ({ params: { slug: page.slug }, props: { page } }));
+}
+
+const { page } = Astro.props;
+const path = `/mortgage/${page.slug}/`;
+const jsonLd = [
+  webApplicationJsonLd({
+    name: page.title,
+    url: `${siteConfig.siteUrl}${path}`,
+    description: page.description,
+    siteUrl: siteConfig.siteUrl,
+    features: ['График платежей по месяцам', 'Переплата и полная стоимость', 'Экспорт в CSV'],
+  }),
+  breadcrumbsJsonLd(siteConfig.siteUrl, [
+    { name: 'Главная', path: '/' },
+    { name: 'Ипотека', path: '/mortgage/' },
+    { name: page.title, path },
+  ]),
+];
+---
+
+<BaseLayout title={page.seoTitle} description={page.description} path={path} jsonLd={jsonLd}>
+  <Container>
+    <PageIntro section="Ипотека" title={page.title} lead={page.lead} compact />
+    <MortgageCalculator initial={pageState(page)} preset />
+
+    <Prose class="intent__text">
+      {
+        page.sections.map((section) => (
+          <>
+            <h2>{section.heading}</h2>
+            {section.paragraphs.map((p) => (
+              <p>{p}</p>
+            ))}
+          </>
+        ))
+      }
+      <p>
+        Ответы на частые вопросы — в разделе <a
+          href={`/faq/#faq-${mortgagePages.indexOf(page) + 1}`}>«Вопросы и ответы»</a
+        >, формулы — на странице <a href="/guide/">«Как считаем»</a>.
+      </p>
+    </Prose>
+    <Disclaimer />
+  </Container>
+</BaseLayout>
+
+<style>
+  :global(.intent__text) {
+    margin-top: var(--space-8);
+  }
+</style>

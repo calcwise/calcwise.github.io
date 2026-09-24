@@ -1,0 +1,57 @@
+---
+import type { FaqItem } from '@/lib/seo';
+
+interface Props {
+  items: FaqItem[];
+  heading?: string;
+  id?: string;
+}
+const { items, heading = 'Вопросы и ответы', id = 'faq' } = Astro.props;
+---
+
+<section class="faq" aria-labelledby={`${id}-heading`} id={id}>
+  <h2 class="faq__heading" id={`${id}-heading`}>{heading}</h2>
+  <dl class="faq__list">
+    {
+      items.map((item) => (
+        <div class="faq__item">
+          <dt class="faq__question">{item.question}</dt>
+          <dd class="faq__answer">{item.answer}</dd>
+        </div>
+      ))
+    }
+  </dl>
+</section>
+
+<style>
+  .faq {
+    max-width: var(--measure);
+    display: grid;
+    gap: var(--space-4);
+    margin-top: var(--space-7);
+  }
+
+  .faq__heading {
+    font-size: var(--text-xl);
+  }
+
+  .faq__list {
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  .faq__item {
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-rule);
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .faq__question {
+    font-weight: 600;
+  }
+
+  .faq__answer {
+    color: var(--color-text);
+  }
+</style>

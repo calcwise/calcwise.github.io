@@ -1,0 +1,111 @@
+---
+import Container from '@/components/atoms/container.astro';
+import Logo from '@/components/atoms/logo.astro';
+import { siteConfig } from '@/config/site';
+import { mortgagePages } from '@/lib/mortgage-pages';
+
+const year = new Date().getFullYear();
+const since = siteConfig.since === year ? String(year) : `${siteConfig.since}–${year}`;
+---
+
+<footer class="footer no-print">
+  <Container class="footer__inner">
+    <div class="footer__brand">
+      <Logo />
+      <p class="footer__tagline">{siteConfig.tagline}</p>
+      <p class="footer__disclaimer">
+        Расчёт справочный. Условия конкретного банка — порядок начисления процентов, даты платежей,
+        комиссии и страховки — могут отличаться, итоговые цифры уточняйте в договоре.
+      </p>
+    </div>
+    <nav class="footer__nav" aria-label="Калькуляторы ипотеки">
+      <h2 class="footer__heading">Ипотека</h2>
+      <ul class="footer__list">
+        <li><a href="/mortgage/">Калькулятор ипотеки</a></li>
+        {
+          mortgagePages.map((page) => (
+            <li>
+              <a href={`/mortgage/${page.slug}/`}>{page.title}</a>
+            </li>
+          ))
+        }
+        <li><a href="/mortgage/compare/">Сравнение сценариев</a></li>
+        <li><a href="/mortgage/schedule/">График платежей</a></li>
+      </ul>
+    </nav>
+    <nav class="footer__nav" aria-label="Разделы сайта">
+      <h2 class="footer__heading">Сервис</h2>
+      <ul class="footer__list">
+        <li><a href="/cooperative/">Кооператив</a></li>
+        <li><a href="/guide/">Как мы считаем</a></li>
+        <li><a href="/faq/">Вопросы и ответы</a></li>
+      </ul>
+    </nav>
+  </Container>
+  <Container class="footer__bottom">
+    <p>© {since} {siteConfig.name}. Бесплатный сервис без рекламы банков.</p>
+  </Container>
+</footer>
+
+<style>
+  .footer {
+    margin-top: var(--space-9);
+    border-top: 1px solid var(--color-rule);
+    background: var(--color-paper);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .footer :global(.footer__inner) {
+    display: grid;
+    gap: var(--space-6);
+    padding-block: var(--space-7) var(--space-5);
+  }
+
+  .footer__tagline {
+    margin-top: var(--space-3);
+    max-width: 36ch;
+    color: var(--color-text);
+  }
+
+  .footer__disclaimer {
+    margin-top: var(--space-3);
+    max-width: 52ch;
+    font-size: var(--text-xs);
+  }
+
+  .footer__heading {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: var(--space-3);
+  }
+
+  .footer__list {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .footer__list a {
+    text-decoration: none;
+  }
+
+  .footer__list a:hover {
+    color: var(--color-ink);
+    text-decoration: underline;
+  }
+
+  .footer :global(.footer__bottom) {
+    padding-block: var(--space-4);
+    border-top: 1px solid var(--color-rule);
+    font-size: var(--text-xs);
+  }
+
+  @media (min-width: 768px) {
+    .footer :global(.footer__inner) {
+      grid-template-columns: 1.4fr 1fr 1fr;
+    }
+  }
+</style>

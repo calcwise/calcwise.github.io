@@ -1,0 +1,72 @@
+---
+import BaseLayout from '@/components/templates/base-layout.astro';
+import Container from '@/components/atoms/container.astro';
+import Disclaimer from '@/components/organisms/disclaimer.astro';
+import Faq from '@/components/organisms/faq.astro';
+import PageIntro from '@/components/organisms/page-intro.astro';
+import Prose from '@/components/organisms/prose.astro';
+import { siteConfig } from '@/config/site';
+import { mortgageFaq, mortgagePages } from '@/lib/mortgage-pages';
+import { breadcrumbsJsonLd, faqJsonLd } from '@/lib/seo';
+
+const path = '/faq/';
+const title = 'Вопросы и ответы о расчёте кредита';
+const description =
+  'Что умеет калькулятор, почему цифры совпадают с банком, как задать льготную ставку, отсрочку и досрочное погашение, чем аннуитет отличается от дифференцированного графика.';
+
+const groups = [
+  { heading: 'Общие вопросы', items: mortgageFaq },
+  ...mortgagePages.map((page) => ({ heading: page.title, items: page.faq })),
+];
+const all = groups.flatMap((g) => g.items);
+---
+
+<BaseLayout
+  title="Вопросы и ответы о калькуляторе"
+  description={description}
+  path={path}
+  jsonLd={[
+    faqJsonLd(all),
+    breadcrumbsJsonLd(siteConfig.siteUrl, [
+      { name: 'Главная', path: '/' },
+      { name: 'Вопросы и ответы', path },
+    ]),
+  ]}
+>
+  <Container narrow>
+    <PageIntro
+      section="Справка"
+      title={title}
+      lead="Короткие ответы о том, как пользоваться калькулятором и как понимать результат. Формулы и методика — на странице «Как считаем»."
+    />
+
+    <Prose>
+      <h2>Что умеет калькулятор</h2>
+      <ul>
+        <li>
+          Аннуитетный и дифференцированный график по месяцам с остатком долга и итогами нарастающим
+          итогом.
+        </li>
+        <li>
+          Ставка по периодам: льготная на первые месяцы, рыночная после, сценарии роста ставки.
+        </li>
+        <li>Отсрочка по основному долгу, одна или несколько, внутри срока или с его продлением.</li>
+        <li>
+          Досрочные погашения разовые и регулярные, с уменьшением срока или платежа, и обратный
+          расчёт «закрыть за N лет».
+        </li>
+        <li>
+          Сравнение до трёх вариантов, ссылка на расчёт, CSV, печать и отдельная страница графика.
+        </li>
+      </ul>
+      <p>
+        Все расчёты — на странице <a href="/mortgage/">калькулятора ипотеки</a>, методика описана в
+        разделе
+        <a href="/guide/">«Как считаем»</a>.
+      </p>
+    </Prose>
+
+    {groups.map((group, i) => <Faq items={group.items} heading={group.heading} id={`faq-${i}`} />)}
+    <Disclaimer />
+  </Container>
+</BaseLayout>

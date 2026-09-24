@@ -1,0 +1,42 @@
+---
+/* Таблица графика платежей. Строки рисует lib/schedule-render.ts */
+interface Props {
+  /** Ограничить высоту и прокручивать внутри (страница калькулятора) */
+  scroll?: boolean;
+}
+const { scroll = true } = Astro.props;
+---
+
+<div class:list={['table-wrap', { 'table-wrap--tall': scroll }]}>
+  <table class="table table--schedule">
+    <thead>
+      <tr>
+        <th scope="col">№</th>
+        <th scope="col" data-col="rate">Ставка</th>
+        <th scope="col">Платёж</th>
+        <th scope="col">Основной долг</th>
+        <th scope="col">Проценты</th>
+        <th scope="col" data-col="prepayment">Досрочно</th>
+        <th scope="col">Остаток долга</th>
+        <th scope="col">Выплачено всего</th>
+        <th scope="col">Выплачено процентов</th>
+        <th scope="col">Осталось выплатить</th>
+      </tr>
+    </thead>
+    <tbody data-out="schedule-body"></tbody>
+    <tfoot>
+      <tr>
+        <th scope="row">Итого</th>
+        <td data-col="rate"></td>
+        <td class="num" data-out="foot-paid"></td>
+        <td class="num cell--principal" data-out="foot-principal"></td>
+        <td class="num cell--interest" data-out="foot-interest"></td>
+        <td class="num cell--prepay" data-col="prepayment" data-out="foot-prepay"></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>

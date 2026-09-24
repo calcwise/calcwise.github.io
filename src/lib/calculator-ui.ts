@@ -1,0 +1,761 @@
+/*
+ * Интерактивность страницы калькулятора. Разметка — в
+ * components/organisms/mortgage-calculator.astro, здесь только поведение:
+ * чтение формы → расчёт → отрисовка результатов → адрес страницы.
+ */
+import { balanceChart, yearsChart } from './charts.ts';
+import { downloadText, scheduleToCsv } from './csv.ts';
+import { clear, debounce, el, q, qa } from './dom.ts';
+import {
+  fmtMoney,
+  fmtMonthsAsYears,
+  fmtRate,
+  formatAmountInput,
+  parseInteger,
+  parseNumber,
+} from './format.ts';
+import {
+  ScheduleInputError,
+  buildSchedule,
+  extraPaymentForTerm,
+  plannedMonths,
+  prepaymentEffect,
+  rateSensitivity,
+  termSensitivity,
+  yearSummaries,
+} from './mortgage/index.ts';
+import type {
+  GracePeriod,
+  Prepayment,
+  RatePeriod,
+  ScheduleResult,
+  SensitivityCell,
+} from './mortgage/index.ts';
+import {
+  describeState,
+  keyStats,
+  renderScheduleTable,
+  renderYearsTable,
+} from './schedule-render.ts';
+import { DEFAULT_STATE, decodeState, encodeState } from './url-state.ts';
+import type { CalculatorState } from './url-state.ts';
+
+const STORAGE_KEY = 'amortize:mortgage:v3';
+let uid = 0;
+
+/* ------------------------------------------------------------------ */
+/* Элементы формы                                                      */
+/* ------------------------------------------------------------------ */
+
+interface FormRefs {
+  root: HTMLElement;
+  form: HTMLFormElement;
+  amount: HTMLInputElement;
+  rate: HTMLInputElement;
+  term: HTMLInputElement;
+  termUnit: () => 'years' | 'months';
+  type: () => 'annuity' | 'diff';
+  rates: HTMLElement;
+  grace: HTMLElement;
+  graceExtends: HTMLInputElement;
+  prepayments: HTMLElement;
+  extra: HTMLDetailsElement;
+  errors: HTMLElement;
+}
+
+interface FieldError {
+  field: string;
+  message: string;
+}
+
+const numberInput = (attrs: Record<string, string | number | boolean | undefined>) =>
+  el('input', { class: 'control__input num', inputmode: 'decimal', autocomplete: 'off', ...attrs });
+
+function labelled(label: string, input: HTMLElement, unit?: string): HTMLElement {
+  return el('label', { class: 'control' }, [
+    el('span', { class: 'control__label', text: label }),
+    el('span', { class: 'control__field' }, [
+      input,
+      unit ? el('span', { class: 'control__unit', text: unit }) : null,
+    ]),
+  ]);
+}
+
+/** Сегментный переключатель вместо нативного select */
+function segmented(
+  label: string,
+  key: string,
+  options: Array<[string, string]>,
+  value: string,
+  wide = false,
+): HTMLElement {
+  const name = `seg-${key}-${++uid}`;
+  return el('div', { class: wide ? 'control control--wide' : 'control' }, [
+    el('span', { class: 'control__label', text: label }),
+    el(
+      'div',
+      { class: 'segmented', role: 'radiogroup', 'aria-label': label, 'data-key': key },
+      options.map(([val, text]) =>
+        el('label', { class: 'segmented__option' }, [
+          el('input', { type: 'radio', name, value: val, checked: val === value }),
+          el('span', { text }),
+        ]),
+      ),
+    ),
+  ]);
+}
+
+const segValue = (row: Element, key: string): string =>
+  row.querySelector<HTMLInputElement>(`[data-key="${key}"] input:checked`)?.value ?? '';
+
+function removeButton(onclick: () => void, label: string): HTMLElement {
+  return el(
+    'button',
+    { type: 'button', class: 'row__remove', 'aria-label': label, title: label, onclick },
+    [el('span', { 'aria-hidden': 'true', text: '×' })],
+  );
+}
+
+function renderRateRow(list: HTMLElement, rate: RatePeriod, onChange: () => void): void {
+  const row = el('div', { class: 'row row--rate', 'data-row': 'rate' }, [
+    labelled(
+      'С месяца',
+      numberInput({ inputmode: 'numeric', value: String(rate.fromMonth), 'data-key': 'fromMonth' }),
+      '№',
+    ),
+    labelled(
+      'Ставка',
+      numberInput({ value: fmtRate(rate.ratePercent), 'data-key': 'ratePercent' }),
+      '%',
+    ),
+    removeButton(() => {
+      row.remove();
+      onChange();
+    }, 'Удалить период ставки'),
+  ]);
+  list.append(row);
+}
+
+function renderGraceRow(list: HTMLElement, grace: GracePeriod, onChange: () => void): void {
+  const row = el('div', { class: 'row row--grace', 'data-row': 'grace' }, [
+    labelled(
+      'С месяца',
+      numberInput({ inputmode: 'numeric', value: String(grace.start), 'data-key': 'start' }),
+      '№',
+    ),
+    labelled(
+      'Месяцев',
+      numberInput({ inputmode: 'numeric', value: String(grace.months), 'data-key': 'months' }),
+    ),
+    removeButton(() => {
+      row.remove();
+      onChange();
+    }, 'Удалить отсрочку'),
+  ]);
+  list.append(row);
+}
+
+function renderPrepaymentRow(list: HTMLElement, p: Prepayment, onChange: () => void): void {
+  const until = labelled(
+    'По месяц',
+    numberInput({
+      inputmode: 'numeric',
+      value: p.untilMonth ? String(p.untilMonth) : '',
+      'data-key': 'untilMonth',
+      placeholder: 'до конца',
+    }),
+    '№',
+  );
+  const repeat = segmented(
+    'Повтор',
+    'repeat',
+    [
+      ['once', 'Раз'],
+      ['monthly', 'Ежемесячно'],
+      ['yearly', 'Ежегодно'],
+    ],
+    p.repeat,
+    true,
+  );
+  const monthLabel = el('span', {
+    class: 'control__label',
+    text: p.repeat === 'once' ? 'В месяце' : 'С месяца',
+  });
+  const month = el('label', { class: 'control' }, [
+    monthLabel,
+    el('span', { class: 'control__field' }, [
+      numberInput({ inputmode: 'numeric', value: String(p.month), 'data-key': 'month' }),
+      el('span', { class: 'control__unit', text: '№' }),
+    ]),
+  ]);
+  const row = el('div', { class: 'row row--prepay', 'data-row': 'prepayment' }, [
+    labelled(
+      'Сумма',
+      numberInput({ value: formatAmountInput(String(p.amount)), 'data-key': 'amount' }),
+    ),
+    month,
+    segmented(
+      'Что пересчитать',
+      'mode',
+      [
+        ['term', 'Срок'],
+        ['payment', 'Платёж'],
+      ],
+      p.mode,
+    ),
+    repeat,
+    until,
+    removeButton(() => {
+      row.remove();
+      onChange();
+    }, 'Удалить досрочное погашение'),
+  ]);
+  const sync = () => {
+    const once = segValue(row, 'repeat') === 'once';
+    until.classList.toggle('control--hidden', once);
+    monthLabel.textContent = once ? 'В месяце' : 'С месяца';
+  };
+  repeat.addEventListener('change', sync);
+  sync();
+  list.append(row);
+}
+
+function fillForm(refs: FormRefs, state: CalculatorState, onChange: () => void): void {
+  refs.amount.value = formatAmountInput(String(state.amount));
+  refs.rate.value = fmtRate(state.rates[0]!.ratePercent);
+  const wholeYears = state.months % 12 === 0;
+  const inYears = state.termInYears && wholeYears;
+  q<HTMLInputElement>(refs.form, 'input[name="term-unit"][value="years"]').checked = inYears;
+  q<HTMLInputElement>(refs.form, 'input[name="term-unit"][value="months"]').checked = !inYears;
+  refs.term.value = inYears ? String(state.months / 12) : String(state.months);
+  q<HTMLInputElement>(refs.form, `input[name="type"][value="${state.type}"]`).checked = true;
+
+  clear(refs.rates);
+  state.rates.slice(1).forEach((r) => renderRateRow(refs.rates, r, onChange));
+  clear(refs.grace);
+  (state.gracePeriods ?? []).forEach((g) => renderGraceRow(refs.grace, g, onChange));
+  refs.graceExtends.checked = Boolean(state.graceExtendsTerm);
+  clear(refs.prepayments);
+  (state.prepayments ?? []).forEach((p) => renderPrepaymentRow(refs.prepayments, p, onChange));
+
+  const hasExtra =
+    state.rates.length > 1 ||
+    (state.gracePeriods?.length ?? 0) > 0 ||
+    (state.prepayments?.length ?? 0) > 0;
+  if (hasExtra) refs.extra.open = true;
+}
+
+interface ReadResult {
+  state: CalculatorState;
+  errors: FieldError[];
+}
+
+function readForm(refs: FormRefs): ReadResult {
+  const errors: FieldError[] = [];
+  const amount = parseNumber(refs.amount.value);
+  if (!Number.isFinite(amount) || amount <= 0)
+    errors.push({ field: 'amount', message: 'Введите сумму больше 0' });
+
+  const baseRate = parseNumber(refs.rate.value);
+  if (!Number.isFinite(baseRate) || baseRate < 0)
+    errors.push({ field: 'rate', message: 'Ставка — число от 0, например 15,4' });
+
+  const unit = refs.termUnit();
+  let months = Number.NaN;
+  if (unit === 'years') {
+    const years = parseNumber(refs.term.value);
+    months = Number.isFinite(years) ? Math.round(years * 12) : Number.NaN;
+    if (!Number.isFinite(years) || years <= 0)
+      errors.push({ field: 'term', message: 'Введите срок в годах, например 20 или 7,5' });
+  } else {
+    months = parseInteger(refs.term.value);
+    if (!Number.isInteger(months) || months < 1)
+      errors.push({ field: 'term', message: 'Срок — целое число месяцев от 1' });
+  }
+  if (Number.isFinite(months) && months > 600)
+    errors.push({ field: 'term', message: 'Максимум 600 месяцев (50 лет)' });
+
+  const rates: RatePeriod[] = [{ fromMonth: 1, ratePercent: baseRate }];
+  qa(refs.rates, '[data-row="rate"]').forEach((row, i) => {
+    const percent = parseNumber(q<HTMLInputElement>(row, '[data-key="ratePercent"]').value);
+    const from = parseInteger(q<HTMLInputElement>(row, '[data-key="fromMonth"]').value);
+    if (!Number.isFinite(percent) || percent < 0)
+      errors.push({ field: `rates.${i + 1}`, message: 'Ставка периода — число от 0' });
+    if (!Number.isInteger(from) || from < 2)
+      errors.push({
+        field: `rates.${i + 1}`,
+        message: 'Период ставки начинается со 2-го месяца или позже',
+      });
+    rates.push({ ratePercent: percent, fromMonth: from });
+  });
+
+  const gracePeriods: GracePeriod[] = qa(refs.grace, '[data-row="grace"]').map((row, i) => {
+    const start = parseInteger(q<HTMLInputElement>(row, '[data-key="start"]').value);
+    const count = parseInteger(q<HTMLInputElement>(row, '[data-key="months"]').value);
+    if (!Number.isInteger(start) || start < 1)
+      errors.push({ field: `grace.${i}`, message: 'Месяц начала отсрочки — целое число от 1' });
+    if (!Number.isInteger(count) || count < 1)
+      errors.push({
+        field: `grace.${i}`,
+        message: 'Длительность отсрочки — целое число месяцев от 1',
+      });
+    return { start, months: count };
+  });
+
+  const prepayments: Prepayment[] = qa(refs.prepayments, '[data-row="prepayment"]').map(
+    (row, i) => {
+      const month = parseInteger(q<HTMLInputElement>(row, '[data-key="month"]').value);
+      const sum = parseNumber(q<HTMLInputElement>(row, '[data-key="amount"]').value);
+      const mode = (segValue(row, 'mode') || 'term') as Prepayment['mode'];
+      const repeat = (segValue(row, 'repeat') || 'once') as Prepayment['repeat'];
+      const untilRaw = q<HTMLInputElement>(row, '[data-key="untilMonth"]').value.trim();
+      if (!Number.isInteger(month) || month < 1)
+        errors.push({
+          field: `prepayments.${i}`,
+          message: 'Месяц досрочного погашения — целое число от 1',
+        });
+      if (!Number.isFinite(sum) || sum <= 0)
+        errors.push({ field: `prepayments.${i}`, message: 'Сумма досрочного погашения больше 0' });
+      const item: Prepayment = { month, amount: sum, mode, repeat };
+      if (repeat !== 'once' && untilRaw !== '') {
+        const untilMonth = parseInteger(untilRaw);
+        if (!Number.isInteger(untilMonth) || untilMonth < month)
+          errors.push({
+            field: `prepayments.${i}`,
+            message: 'Месяц окончания повторов не раньше месяца начала',
+          });
+        item.untilMonth = untilMonth;
+      }
+      return item;
+    },
+  );
+
+  return {
+    state: {
+      amount,
+      months,
+      type: refs.type(),
+      rates,
+      gracePeriods,
+      graceExtendsTerm: refs.graceExtends.checked,
+      prepayments,
+      termInYears: unit === 'years',
+    },
+    errors,
+  };
+}
+
+function showErrors(refs: FormRefs, errors: FieldError[]): void {
+  qa(refs.form, '.control--invalid').forEach((c) => c.classList.remove('control--invalid'));
+  clear(refs.errors);
+  refs.errors.hidden = errors.length === 0;
+  const seen = new Set<string>();
+  for (const error of errors) {
+    const key = error.field + error.message;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    refs.errors.append(el('li', { text: error.message }));
+    const [group, index] = error.field.split('.');
+    let target: Element | null = null;
+    if (group === 'amount') target = refs.amount.closest('.control');
+    else if (group === 'rate' || (group === 'rates' && index === '0'))
+      target = refs.rate.closest('.control');
+    else if (group === 'term' || group === 'months') target = refs.term.closest('.control');
+    else if (group === 'rates') target = qa(refs.rates, '[data-row]')[Number(index) - 1] ?? null;
+    else if (group === 'grace') target = qa(refs.grace, '[data-row]')[Number(index)] ?? null;
+    else if (group === 'prepayments')
+      target = qa(refs.prepayments, '[data-row]')[Number(index)] ?? null;
+    if (target) {
+      target.classList.add('control--invalid');
+      if (target.closest('[data-extra]')) refs.extra.open = true;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Результаты                                                          */
+/* ------------------------------------------------------------------ */
+
+function stat(
+  label: string,
+  value: string,
+  note?: string,
+  tone?: 'principal' | 'interest' | 'prepay',
+): HTMLElement {
+  return el('div', { class: `stat${tone ? ` stat--${tone}` : ''}` }, [
+    el('dt', { class: 'stat__label', text: label }),
+    el('dd', { class: 'stat__value num', text: value }),
+    note ? el('dd', { class: 'stat__note', text: note }) : null,
+  ]);
+}
+
+function renderSummary(root: HTMLElement, state: CalculatorState, r: ScheduleResult): void {
+  q(root, '[data-out="conditions"]').textContent = describeState(state, r);
+  const figure = q(root, '[data-out="figure"]');
+  const figureLabel = q(root, '[data-out="figure-label"]');
+  const figureNote = q(root, '[data-out="figure-note"]');
+  const grace = r.rows.find((row) => row.isGrace);
+  const firstRegular = r.rows.find((row) => !row.isGrace) ?? r.rows[0]!;
+  const lastRegular =
+    [...r.rows].reverse().find((row) => !row.isGrace) ?? r.rows[r.rows.length - 1]!;
+  const ratePeriods = r.input.rates
+    .slice(1)
+    .map((period) => r.rows.find((row) => row.month >= period.fromMonth && !row.isGrace))
+    .filter((row): row is NonNullable<typeof row> => row !== undefined);
+  const reducing = r.input.prepayments.some((p) => p.mode === 'payment');
+
+  figure.textContent = fmtMoney(firstRegular.payment);
+  const notes: string[] = [];
+  if (r.input.type === 'annuity') {
+    figureLabel.textContent = ratePeriods.length
+      ? 'Платёж в первый период'
+      : reducing
+        ? 'Платёж до досрочного погашения'
+        : 'Ежемесячный платёж';
+    if (grace) notes.push(`в отсрочку ${fmtMoney(grace.payment)}`);
+    for (const row of ratePeriods)
+      notes.push(
+        `с ${row.month}-го месяца ${fmtMoney(row.payment)} при ставке ${fmtRate(row.ratePercent)}%`,
+      );
+    if (reducing) notes.push(`после досрочки ${fmtMoney(lastRegular.payment)}`);
+  } else {
+    figureLabel.textContent = 'Первый платёж';
+    notes.push(`последний ${fmtMoney(lastRegular.payment)}`);
+    if (grace) notes.push(`в отсрочку от ${fmtMoney(grace.payment)}`);
+  }
+  figureNote.textContent = notes.join(', ');
+
+  const stats = q(root, '[data-out="stats"]');
+  clear(stats);
+  for (const item of keyStats(r)) stats.append(stat(item.label, item.value, item.note, item.tone));
+
+  const share = q(root, '[data-out="share"]');
+  const principalShare = (r.summary.totalPrincipal / r.summary.totalPaid) * 100;
+  q<HTMLElement>(share, '.share__principal').style.width = `${principalShare}%`;
+  q<HTMLElement>(share, '.share__interest').style.width = `${100 - principalShare}%`;
+  q(root, '[data-out="share-principal"]').textContent =
+    `Основной долг ${principalShare.toFixed(1)}%`;
+  q(root, '[data-out="share-interest"]').textContent =
+    `Проценты ${(100 - principalShare).toFixed(1)}%`;
+
+  q(root, '[data-out="legend-grace"]').hidden = r.summary.graceMonths === 0;
+  q(root, '[data-out="legend-prepay"]').hidden = r.summary.totalPrepaid === 0;
+
+  const hint = q(root, '[data-out="extra-hint"]');
+  const extras: string[] = [];
+  const periods = state.rates.length - 1;
+  if (periods > 0) extras.push(`${periods} ${periods === 1 ? 'период ставки' : 'периода ставки'}`);
+  if (state.gracePeriods?.length)
+    extras.push(`отсрочка ${state.gracePeriods.reduce((a, g) => a + g.months, 0)} мес.`);
+  const prepays = state.prepayments?.length ?? 0;
+  if (prepays)
+    extras.push(`${prepays} ${prepays === 1 ? 'досрочное погашение' : 'досрочных погашения'}`);
+  hint.textContent = extras.length
+    ? extras.join(', ')
+    : 'ставка по периодам, отсрочка, досрочные погашения';
+}
+
+function renderEffect(root: HTMLElement, r: ScheduleResult): ReturnType<typeof prepaymentEffect> {
+  const box = q(root, '[data-out="effect"]');
+  const effect = prepaymentEffect(r);
+  clear(box);
+  box.hidden = !effect;
+  if (!effect) return null;
+  box.append(
+    el('h2', { class: 'results__heading', text: 'Эффект досрочных погашений' }),
+    el('dl', { class: 'stats' }, [
+      stat(
+        'Экономия на процентах',
+        fmtMoney(effect.interestSaved),
+        `без досрочек переплата ${fmtMoney(effect.baseline.summary.totalInterest)}`,
+        'interest',
+      ),
+      effect.monthsSaved > 0
+        ? stat(
+            'Кредит закрыт раньше',
+            `на ${fmtMonthsAsYears(effect.monthsSaved)}`,
+            `за ${fmtMonthsAsYears(r.summary.actualMonths)} вместо ${fmtMonthsAsYears(effect.baseline.summary.actualMonths)}`,
+          )
+        : null,
+      effect.paymentReduced > 0
+        ? stat('Платёж снижен', `на ${fmtMoney(effect.paymentReduced)}`)
+        : null,
+    ]),
+  );
+  return effect;
+}
+
+function sensitivityTable(cells: SensitivityCell[], head: string): HTMLElement {
+  return el('table', { class: 'mini-table num' }, [
+    el('thead', {}, [
+      el('tr', {}, [
+        el('th', { text: head, scope: 'col' }),
+        el('th', { text: 'Платёж', scope: 'col' }),
+        el('th', { text: 'Переплата', scope: 'col' }),
+      ]),
+    ]),
+    el(
+      'tbody',
+      {},
+      cells.map((c) =>
+        el('tr', { class: c.isCurrent ? 'mini-table__current' : '' }, [
+          el('th', { scope: 'row', text: c.label }),
+          el('td', { text: fmtMoney(c.payment) }),
+          el('td', { text: fmtMoney(c.totalInterest) }),
+        ]),
+      ),
+    ),
+  ]);
+}
+
+function renderAnalysis(
+  root: HTMLElement,
+  state: CalculatorState,
+  r: ScheduleResult,
+  baseline?: ScheduleResult,
+): void {
+  q(root, '[data-chart="balance"]').innerHTML = balanceChart(r, baseline);
+  q(root, '[data-chart="years"]').innerHTML = yearsChart(yearSummaries(r));
+  q(root, '[data-out="balance-legend"]').hidden = !baseline;
+  renderYearsTable(root, r);
+  const rateBox = q(root, '[data-out="sens-rate"]');
+  const termBox = q(root, '[data-out="sens-term"]');
+  clear(rateBox);
+  clear(termBox);
+  try {
+    rateBox.append(sensitivityTable(rateSensitivity(state), 'Ставка'));
+    termBox.append(sensitivityTable(termSensitivity(state), 'Срок'));
+  } catch {
+    /* вспомогательный блок: при экзотических параметрах просто пуст */
+  }
+}
+
+function renderTargetTerm(root: HTMLElement, state: CalculatorState): void {
+  const input = root.querySelector<HTMLInputElement>('[data-target-years]');
+  const out = root.querySelector<HTMLElement>('[data-target-result]');
+  if (!input || !out) return;
+  const years = parseNumber(input.value);
+  if (!Number.isFinite(years) || years <= 0) {
+    out.textContent = '';
+    return;
+  }
+  const target = Math.round(years * 12);
+  try {
+    const extra = extraPaymentForTerm({ ...state, prepayments: [] }, target);
+    if (extra === null) {
+      out.textContent = target >= plannedMonths(state) ? 'Это не короче текущего срока' : '';
+      return;
+    }
+    out.textContent = `Доплачивайте ${fmtMoney(extra)} каждый месяц сверх платежа — кредит закроется за ${fmtMonthsAsYears(target)}.`;
+  } catch {
+    out.textContent = '';
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Инициализация                                                       */
+/* ------------------------------------------------------------------ */
+
+function loadSaved(): CalculatorState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? decodeState(new URLSearchParams(raw)) : null;
+  } catch {
+    return null;
+  }
+}
+
+function save(state: CalculatorState): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, encodeState(state).toString());
+  } catch {
+    /* приватный режим */
+  }
+}
+
+/** Меню действий на <details>: закрывается по клику вне, по Escape и после выбора */
+function initMenu(menu: HTMLDetailsElement): void {
+  document.addEventListener('click', (e) => {
+    if (menu.open && !menu.contains(e.target as Node)) menu.open = false;
+  });
+  menu.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && menu.open) {
+      menu.open = false;
+      menu.querySelector<HTMLElement>('summary')?.focus();
+    }
+  });
+  menu.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('.menu__item')) setTimeout(() => (menu.open = false), 0);
+  });
+}
+
+export function initCalculator(root: HTMLElement): void {
+  const form = q<HTMLFormElement>(root, 'form[data-form]');
+  const refs: FormRefs = {
+    root,
+    form,
+    amount: q<HTMLInputElement>(form, '[data-field="amount"]'),
+    rate: q<HTMLInputElement>(form, '[data-field="rate"]'),
+    term: q<HTMLInputElement>(form, '[data-field="term"]'),
+    termUnit: () =>
+      q<HTMLInputElement>(form, 'input[name="term-unit"]:checked').value === 'years'
+        ? 'years'
+        : 'months',
+    type: () =>
+      q<HTMLInputElement>(form, 'input[name="type"]:checked').value === 'diff' ? 'diff' : 'annuity',
+    rates: q(form, '[data-list="rates"]'),
+    grace: q(form, '[data-list="grace"]'),
+    graceExtends: q<HTMLInputElement>(form, '[data-field="grace-extends"]'),
+    prepayments: q(form, '[data-list="prepayments"]'),
+    extra: q<HTMLDetailsElement>(form, '[data-extra]'),
+    errors: q(form, '[data-errors]'),
+  };
+  const results = q(root, '[data-results]');
+  const empty = q(root, '[data-empty]');
+
+  /* Стартовое состояние: адрес → сохранённое → заданное страницей → по умолчанию */
+  const pageInitial = root.dataset.initial
+    ? (JSON.parse(root.dataset.initial) as CalculatorState)
+    : DEFAULT_STATE;
+  const fromUrl = new URLSearchParams(location.search);
+  const hasUrlState = fromUrl.has('a') || fromUrl.has('n') || fromUrl.has('r');
+  const pageHasPreset = root.dataset.preset === '1';
+  const initial = hasUrlState
+    ? decodeState(fromUrl, pageInitial)
+    : (!pageHasPreset && loadSaved()) || pageInitial;
+
+  let current: CalculatorState = initial;
+
+  const recalc = () => {
+    const { state, errors } = readForm(refs);
+    let result: ScheduleResult | null = null;
+    if (errors.length === 0) {
+      try {
+        result = buildSchedule(state);
+      } catch (e) {
+        if (e instanceof ScheduleInputError) errors.push({ field: e.field, message: e.message });
+        else
+          errors.push({
+            field: 'form',
+            message: e instanceof Error ? e.message : 'Не удалось построить график',
+          });
+      }
+    }
+    showErrors(refs, errors);
+    results.hidden = !result;
+    empty.hidden = Boolean(result);
+    if (!result) return;
+    current = state;
+    renderSummary(root, state, result);
+    renderScheduleTable(root, result);
+    const effect = renderEffect(root, result);
+    renderAnalysis(root, state, result, effect?.baseline);
+    renderTargetTerm(root, state);
+    save(state);
+    const url = new URL(location.href);
+    url.search = encodeState(state).toString();
+    history.replaceState(null, '', url);
+  };
+  const scheduleRecalc = debounce(recalc, 150);
+
+  fillForm(refs, initial, scheduleRecalc);
+
+  form.addEventListener('input', scheduleRecalc);
+  form.addEventListener('change', scheduleRecalc);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    recalc();
+  });
+  refs.amount.addEventListener('blur', () => {
+    refs.amount.value = formatAmountInput(refs.amount.value);
+  });
+
+  /* Переключение лет и месяцев пересчитывает число в поле, а не срок */
+  qa<HTMLInputElement>(form, 'input[name="term-unit"]').forEach((radio) =>
+    radio.addEventListener('change', () => {
+      const months = current.months;
+      refs.term.value =
+        radio.value === 'years'
+          ? String(Math.round((months / 12) * 100) / 100).replace('.', ',')
+          : String(months);
+    }),
+  );
+
+  qa<HTMLButtonElement>(form, '[data-add]').forEach((button) =>
+    button.addEventListener('click', () => {
+      const kind = button.dataset.add;
+      const total = plannedMonths(current);
+      let list = refs.prepayments;
+      if (kind === 'rates') {
+        const last = current.rates[current.rates.length - 1]!;
+        renderRateRow(
+          refs.rates,
+          { fromMonth: Math.min(total, last.fromMonth + 12), ratePercent: last.ratePercent },
+          scheduleRecalc,
+        );
+        list = refs.rates;
+      } else if (kind === 'grace') {
+        const lastEnd = (current.gracePeriods ?? []).reduce(
+          (m, g) => Math.max(m, g.start + g.months),
+          1,
+        );
+        renderGraceRow(
+          refs.grace,
+          { start: Math.min(total - 1, lastEnd), months: 6 },
+          scheduleRecalc,
+        );
+        list = refs.grace;
+      } else {
+        renderPrepaymentRow(
+          refs.prepayments,
+          { month: 12, amount: Math.round(current.amount / 10), mode: 'term', repeat: 'once' },
+          scheduleRecalc,
+        );
+      }
+      list.lastElementChild?.querySelector<HTMLInputElement>('input')?.focus();
+      scheduleRecalc();
+    }),
+  );
+
+  const menu = root.querySelector<HTMLDetailsElement>('[data-menu]');
+  if (menu) initMenu(menu);
+
+  root.querySelector('[data-action="copy-link"]')?.addEventListener('click', async (e) => {
+    const button = e.currentTarget as HTMLButtonElement;
+    const url = new URL(location.href);
+    url.search = encodeState(current).toString();
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      const label = button.textContent;
+      button.textContent = 'Ссылка скопирована';
+      setTimeout(() => (button.textContent = label), 1800);
+    } catch {
+      prompt('Скопируйте ссылку на расчёт', url.toString());
+    }
+  });
+  root.querySelector('[data-action="csv"]')?.addEventListener('click', () => {
+    downloadText(
+      `amortize-${current.type}-${current.amount}-${current.months}.csv`,
+      scheduleToCsv(buildSchedule(current)),
+      'text/csv;charset=utf-8',
+    );
+  });
+  root.querySelector('[data-action="print"]')?.addEventListener('click', () => window.print());
+  for (const action of ['compare', 'schedule']) {
+    root
+      .querySelector<HTMLAnchorElement>(`[data-action="${action}"]`)
+      ?.addEventListener('click', (e) => {
+        const link = e.currentTarget as HTMLAnchorElement;
+        const url = new URL(link.href);
+        if (action === 'compare') url.searchParams.set('s', encodeState(current).toString());
+        else url.search = encodeState(current).toString();
+        link.href = url.toString();
+      });
+  }
+  root.querySelector('[data-target-years]')?.addEventListener(
+    'input',
+    debounce(() => renderTargetTerm(root, current), 200),
+  );
+
+  recalc();
+}

@@ -1,0 +1,54 @@
+---
+/*
+ * Знак: три убывающих столбика — платёж, в котором доля процентов тает,
+ * и словесная марка. Столбики — те же цвета данных, что в графиках.
+ */
+interface Props {
+  compact?: boolean;
+}
+const { compact = false } = Astro.props;
+---
+
+<span class:list={['logo', { 'logo--compact': compact }]}>
+  <svg class="logo__mark" viewBox="0 0 28 28" aria-hidden="true">
+    <rect x="2" y="4" width="6" height="22" rx="1.5" class="logo__bar logo__bar--principal"></rect>
+    <rect x="2" y="4" width="6" height="14" rx="1.5" class="logo__bar logo__bar--interest"></rect>
+    <rect x="11" y="9" width="6" height="17" rx="1.5" class="logo__bar logo__bar--principal"></rect>
+    <rect x="11" y="9" width="6" height="7" rx="1.5" class="logo__bar logo__bar--interest"></rect>
+    <rect x="20" y="14" width="6" height="12" rx="1.5" class="logo__bar logo__bar--principal"
+    ></rect>
+    <rect x="20" y="14" width="6" height="2.5" rx="1.25" class="logo__bar logo__bar--interest"
+    ></rect>
+  </svg>
+  <span class="logo__word">Amortize</span>
+</span>
+
+<style>
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: 700;
+    font-size: 1.25rem;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+  }
+
+  .logo__mark {
+    width: 28px;
+    height: 28px;
+    flex: none;
+  }
+
+  .logo__bar--principal {
+    fill: var(--color-principal);
+  }
+
+  .logo__bar--interest {
+    fill: var(--color-interest);
+  }
+
+  .logo--compact .logo__word {
+    display: none;
+  }
+</style>

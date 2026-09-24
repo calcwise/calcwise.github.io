@@ -1,0 +1,138 @@
+---
+import '@/config/global.css';
+import Footer from '@/components/organisms/footer.astro';
+import Header from '@/components/organisms/header.astro';
+import TabBar from '@/components/organisms/tab-bar.astro';
+import { siteConfig } from '@/config/site';
+import {
+  buildTitle,
+  canonicalUrl,
+  clampDescription,
+  jsonLdText,
+  organizationJsonLd,
+  webSiteJsonLd,
+} from '@/lib/seo';
+import type { PageSeo } from '@/lib/seo';
+import { speculationRules } from '@/lib/speculation';
+
+interface Props extends PageSeo {
+  /** Дополнительные JSON-LD объекты страницы */
+  jsonLd?: object[];
+}
+
+const { title, description, path, ogType = 'website', noindex = false, jsonLd = [] } = Astro.props;
+
+const fullTitle = buildTitle(title);
+const metaDescription = clampDescription(description);
+const canonical = canonicalUrl(siteConfig.siteUrl, path);
+const ogImage = `${siteConfig.siteUrl}/og.png`;
+
+const jsonLdBlocks = [
+  organizationJsonLd({
+    name: siteConfig.name,
+    url: siteConfig.siteUrl,
+    logoUrl: `${siteConfig.siteUrl}/icon-512.png`,
+  }),
+  webSiteJsonLd({
+    name: siteConfig.name,
+    url: siteConfig.siteUrl,
+    description: siteConfig.description,
+    lang: siteConfig.lang,
+  }),
+  ...jsonLd,
+];
+---
+
+<!doctype html>
+<html lang={siteConfig.lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={metaDescription} />
+    {!noindex && <link rel="canonical" href={canonical} />}
+    <link rel="sitemap" href="/sitemap.xml" />
+    <meta
+      name="robots"
+      content={noindex
+        ? 'noindex, follow'
+        : 'index, follow, max-image-preview:large, max-snippet:-1'}
+    />
+
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content={siteConfig.name} />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1b1e26" media="(prefers-color-scheme: dark)" />
+
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content={siteConfig.name} />
+    <meta property="og:locale" content={siteConfig.locale} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={metaDescription} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={siteConfig.tagline} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link
+      rel="preload"
+      href="/fonts/golos-text-cyrillic.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/golos-text-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    {
+      jsonLdBlocks.map((block) => (
+        <script type="application/ld+json" set:html={jsonLdText(block)} />
+      ))
+    }
+    <script type="speculationrules" set:html={speculationRules()} />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">К содержимому</a>
+    <Header />
+    <main id="main" class="main">
+      <slot />
+    </main>
+    <Footer />
+    <TabBar />
+  </body>
+</html>
+
+<style>
+  .skip-link {
+    position: absolute;
+    top: var(--space-2);
+    left: var(--space-2);
+    z-index: 200;
+    padding: var(--space-2) var(--space-4);
+    background: var(--color-ink-solid);
+    color: var(--color-on-ink);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transform: translateY(-200%);
+  }
+
+  .skip-link:focus {
+    transform: none;
+  }
+
+  .main {
+    padding-block: var(--space-6) var(--space-7);
+  }
+</style>

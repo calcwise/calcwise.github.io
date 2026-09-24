@@ -1,0 +1,39 @@
+{
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "name": "amortize",
+  "description": "Калькулятор кредитов: ипотека и кооператив. График платежей по банковской методике.",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "stop": "astro dev stop",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "test": "node --test 'src/lib/**/*.test.ts'",
+    "lint": "eslint . --fix",
+    "format": "prettier --write .",
+    "icons": "node scripts/icons.mjs"
+  },
+  "dependencies": {
+    "astro": "^7.2.3",
+    "big.js": "^7.0.1",
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@types/big.js": "^6.2.2",
+    "@types/node": "^26.6.2",
+    "eslint": "^10.8.1",
+    "eslint-import-resolver-typescript": "^4.4.0",
+    "eslint-plugin-astro": "^3.1.0",
+    "eslint-plugin-boundaries": "^7.2.0",
+    "prettier": "^3.9.6",
+    "prettier-plugin-astro": "^0.14.1",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.67.0"
+  }
+}

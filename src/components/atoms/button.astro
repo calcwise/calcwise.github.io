@@ -1,0 +1,90 @@
+---
+interface Props {
+  href?: string;
+  type?: 'button' | 'submit';
+  variant?: 'solid' | 'outline' | 'ghost';
+  size?: 'md' | 'lg';
+  class?: string;
+  [key: `data-${string}`]: string | undefined;
+}
+const {
+  href,
+  type = 'button',
+  variant = 'solid',
+  size = 'md',
+  class: className,
+  ...rest
+} = Astro.props;
+const classes = ['button', `button--${variant}`, `button--${size}`, className];
+---
+
+{
+  href ? (
+    <a class:list={classes} href={href} {...rest}>
+      <slot />
+    </a>
+  ) : (
+    <button class:list={classes} type={type} {...rest}>
+      <slot />
+    </button>
+  )
+}
+
+<style>
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: var(--control-height);
+    padding: 0 var(--space-5);
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    font-weight: 600;
+    font-size: var(--text-sm);
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+      background-color var(--duration-fast),
+      border-color var(--duration-fast),
+      color var(--duration-fast);
+  }
+
+  .button--lg {
+    min-height: 3.5rem;
+    padding: 0 var(--space-6);
+    font-size: var(--text-base);
+  }
+
+  .button--solid {
+    background: var(--color-ink-solid);
+    color: var(--color-on-ink);
+  }
+
+  .button--solid:hover {
+    background: var(--color-ink-solid-hover);
+  }
+
+  .button--outline {
+    border-color: var(--color-control-border);
+    background: var(--color-paper);
+    color: var(--color-text);
+  }
+
+  .button--outline:hover {
+    border-color: var(--color-ink);
+    color: var(--color-ink);
+  }
+
+  .button--ghost {
+    background: transparent;
+    color: var(--color-ink);
+    padding-inline: var(--space-3);
+  }
+
+  .button--ghost:hover {
+    background: var(--color-ink-soft);
+  }
+</style>

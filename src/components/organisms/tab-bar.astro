@@ -1,0 +1,103 @@
+---
+/*
+ * Нижний таб-бар — навигация для узких экранов вместо бургер-меню:
+ * разделы всегда под большим пальцем. От 1024px скрыт, там меню в шапке.
+ */
+import { isCurrentPath, navItems, normalizePath } from '@/lib/menu';
+import type { NavIcon } from '@/lib/menu';
+
+const icons: Record<NavIcon, string[]> = {
+  home: ['M3 9.2 12 2l9 7.2V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M9.5 22v-7.5h5V22'],
+  mortgage: ['M4 20h16', 'M6 20V9', 'M12 20V5', 'M18 20v-8', 'M6 9h2', 'M12 5h2', 'M18 12h2'],
+  cooperative: ['M12 3 3 8.5V20h18V8.5z', 'M9 20v-6h6v6', 'M3 8.5h18'],
+  guide: [
+    'M4 4h9a3 3 0 0 1 3 3v13H7a3 3 0 0 0-3 3z',
+    'M16 7a3 3 0 0 1 3-3h1v13h-4',
+    'M8 9h4',
+    'M8 13h4',
+  ],
+};
+
+const currentPath = normalizePath(Astro.url.pathname);
+---
+
+<nav class="tab-bar no-print" aria-label="Основная навигация">
+  <ul class="tab-bar__list">
+    {
+      navItems.map((item) => (
+        <li class="tab-bar__item">
+          <a
+            class="tab-bar__link"
+            href={item.href}
+            aria-current={isCurrentPath(item.href, currentPath) ? 'page' : undefined}
+          >
+            <svg
+              class="tab-bar__icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              {icons[item.icon].map((d) => (
+                <path d={d} />
+              ))}
+            </svg>
+            <span class="tab-bar__label">{item.label}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>
+
+<style>
+  .tab-bar {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 100;
+    background: var(--color-paper);
+    border-top: 1px solid var(--color-rule);
+    padding-bottom: var(--safe-bottom);
+  }
+
+  .tab-bar__list {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    list-style: none;
+    padding: 0 var(--safe-right) 0 var(--safe-left);
+    height: var(--tab-bar-height);
+  }
+
+  .tab-bar__link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    height: 100%;
+    min-width: 44px;
+    text-decoration: none;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .tab-bar__link[aria-current='page'] {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+
+  .tab-bar__icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  @media (min-width: 1024px) {
+    .tab-bar {
+      display: none;
+    }
+  }
+</style>

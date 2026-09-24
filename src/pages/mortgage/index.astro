@@ -1,0 +1,72 @@
+---
+import BaseLayout from '@/components/templates/base-layout.astro';
+import Container from '@/components/atoms/container.astro';
+import Disclaimer from '@/components/organisms/disclaimer.astro';
+import MortgageCalculator from '@/components/organisms/mortgage-calculator.astro';
+import PageIntro from '@/components/organisms/page-intro.astro';
+import { siteConfig } from '@/config/site';
+import { mortgageFaq } from '@/lib/mortgage-pages';
+import { breadcrumbsJsonLd, faqJsonLd, webApplicationJsonLd } from '@/lib/seo';
+import { DEFAULT_STATE } from '@/lib/url-state';
+
+const path = '/mortgage/';
+const title = 'Калькулятор ипотеки с графиком платежей';
+const description =
+  'Ипотечный калькулятор: аннуитетный и дифференцированный график по месяцам, ставка по периодам, отсрочка по долгу, досрочные погашения и переплата. Расчёт до копейки, как в банке.';
+
+const jsonLd = [
+  webApplicationJsonLd({
+    name: 'Калькулятор ипотеки Amortize',
+    url: `${siteConfig.siteUrl}${path}`,
+    description,
+    siteUrl: siteConfig.siteUrl,
+    features: [
+      'Аннуитетный и дифференцированный график платежей',
+      'Ставка по периодам: льготная и рыночная',
+      'Отсрочка по основному долгу',
+      'Досрочные погашения: разовые и регулярные',
+      'Сравнение сценариев',
+      'Экспорт графика в CSV и печать',
+    ],
+  }),
+  faqJsonLd(mortgageFaq.slice(0, 3)),
+  breadcrumbsJsonLd(siteConfig.siteUrl, [
+    { name: 'Главная', path: '/' },
+    { name: 'Ипотека', path },
+  ]),
+];
+---
+
+<BaseLayout title={title} description={description} path={path} jsonLd={jsonLd}>
+  <Container>
+    <PageIntro
+      section="Ипотека"
+      title={title}
+      lead="Сумма, ставка и срок — и ниже готовый график по месяцам. Льготная ставка, отсрочка и досрочные погашения — в дополнительных условиях."
+      compact
+    />
+    <MortgageCalculator initial={DEFAULT_STATE} />
+    <Disclaimer />
+    <p class="mortgage__links no-print">
+      <a href="/faq/">Вопросы и ответы</a> · <a href="/guide/">Как считаем</a> ·
+      <a href="/mortgage/compare/">Сравнение вариантов</a>
+    </p>
+  </Container>
+</BaseLayout>
+
+<style>
+  .mortgage__links {
+    margin-top: var(--space-5);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .mortgage__links a {
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+
+  .mortgage__links a:hover {
+    text-decoration: underline;
+  }
+</style>

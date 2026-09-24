@@ -1,0 +1,386 @@
+---
+import BaseLayout from '@/components/templates/base-layout.astro';
+import Button from '@/components/atoms/button.astro';
+import Container from '@/components/atoms/container.astro';
+import { siteConfig } from '@/config/site';
+import { fmtMoney, fmtRate } from '@/lib/format';
+import { buildSchedule } from '@/lib/mortgage';
+import { mortgagePages } from '@/lib/mortgage-pages';
+import { DEFAULT_STATE } from '@/lib/url-state';
+
+/* Пример на главной — настоящий расчёт, собранный при сборке, а не картинка */
+const sample = buildSchedule(DEFAULT_STATE);
+const sampleRows = [sample.rows[0]!, sample.rows[1]!, sample.rows[2]!];
+const lastRow = sample.rows[sample.rows.length - 1]!;
+const crossover = sample.rows.find((r) => r.principal >= r.interest)!;
+const rate = DEFAULT_STATE.rates[0]!.ratePercent;
+---
+
+<BaseLayout
+  title="Калькулятор ипотеки и кредитов с графиком платежей"
+  description={siteConfig.description}
+  path="/"
+>
+  <Container>
+    <section class="hero">
+      <div class="hero__text">
+        <h1 class="hero__title">График платежей, который сходится с банком</h1>
+        <p class="hero__lead">
+          Ипотека и кредиты: аннуитет и дифференцированный график, льготная ставка на первые месяцы,
+          отсрочка по долгу, досрочные погашения. Считаем по той же методике, что и банковские
+          расчётники, — до копейки.
+        </p>
+        <div class="hero__actions">
+          <Button href="/mortgage/" size="lg">Рассчитать ипотеку</Button>
+          <Button href="/guide/" variant="ghost" size="lg">Как мы считаем</Button>
+        </div>
+      </div>
+
+      <figure class="ledger" aria-label="Пример графика платежей">
+        <figcaption class="ledger__caption">
+          {fmtMoney(sample.summary.amount)} на {DEFAULT_STATE.months / 12} лет под {fmtRate(rate)}%
+          годовых, аннуитет
+        </figcaption>
+        <table class="ledger__table num">
+          <thead>
+            <tr><th>№</th><th>Платёж</th><th>Долг</th><th>Проценты</th><th>Остаток</th></tr>
+          </thead>
+          <tbody>
+            {
+              sampleRows.map((row) => (
+                <tr>
+                  <td>{row.month}</td>
+                  <td>{fmtMoney(row.payment)}</td>
+                  <td class="ledger__principal">{fmtMoney(row.principal)}</td>
+                  <td class="ledger__interest">{fmtMoney(row.interest)}</td>
+                  <td>{fmtMoney(row.balance)}</td>
+                </tr>
+              ))
+            }
+            <tr class="ledger__gap"><td colspan="5">···</td></tr>
+            <tr>
+              <td>{crossover.month}</td>
+              <td>{fmtMoney(crossover.payment)}</td>
+              <td class="ledger__principal">{fmtMoney(crossover.principal)}</td>
+              <td class="ledger__interest">{fmtMoney(crossover.interest)}</td>
+              <td>{fmtMoney(crossover.balance)}</td>
+            </tr>
+            <tr class="ledger__gap"><td colspan="5">···</td></tr>
+            <tr>
+              <td>{lastRow.month}</td>
+              <td>{fmtMoney(lastRow.payment)}</td>
+              <td class="ledger__principal">{fmtMoney(lastRow.principal)}</td>
+              <td class="ledger__interest">{fmtMoney(lastRow.interest)}</td>
+              <td>{fmtMoney(lastRow.balance)}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row">Итого</th>
+              <td>{fmtMoney(sample.summary.totalPaid)}</td>
+              <td class="ledger__principal">{fmtMoney(sample.summary.totalPrincipal)}</td>
+              <td class="ledger__interest">{fmtMoney(sample.summary.totalInterest)}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+        <p class="ledger__note">
+          С {crossover.month}-го месяца в платеже долга больше, чем процентов. Переплата — {
+            fmtRate(sample.summary.overpaymentPercent)
+          }% от суммы.
+        </p>
+      </figure>
+    </section>
+
+    <section class="sections" aria-labelledby="sections-heading">
+      <h2 class="sections__heading" id="sections-heading">Два калькулятора</h2>
+      <div class="sections__grid">
+        <a class="section-card" href="/mortgage/">
+          <h3 class="section-card__title">Ипотека и кредит банка</h3>
+          <p class="section-card__text">
+            Платёж, переплата и график по месяцам. Ставка по периодам, отсрочка по основному долгу,
+            досрочные погашения, сравнение до трёх вариантов.
+          </p>
+          <span class="section-card__cta">Открыть калькулятор</span>
+        </a>
+        <a class="section-card section-card--soon" href="/cooperative/">
+          <h3 class="section-card__title">Кооператив</h3>
+          <p class="section-card__text">
+            Паевые и членские взносы, накопление и переход ко второму этапу. Раздел готовится.
+          </p>
+          <span class="section-card__cta">Что будет в разделе</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="intents" aria-labelledby="intents-heading">
+      <h2 class="intents__heading" id="intents-heading">Отдельные расчёты</h2>
+      <ul class="intents__list">
+        {
+          mortgagePages.map((page) => (
+            <li>
+              <a class="intents__link" href={`/mortgage/${page.slug}/`}>
+                <span class="intents__title">{page.title}</span>
+                <span class="intents__text">{page.description.split('.')[0]}.</span>
+              </a>
+            </li>
+          ))
+        }
+        <li>
+          <a class="intents__link" href="/mortgage/compare/">
+            <span class="intents__title">Сравнение вариантов</span>
+            <span class="intents__text">До трёх сценариев рядом: банки, сроки, типы платежей</span>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <section class="method" aria-labelledby="method-heading">
+      <h2 class="method__heading" id="method-heading">Почему цифры сходятся с банком</h2>
+      <div class="method__grid">
+        <div class="method__item">
+          <h3>Полная точность внутри</h3>
+          <p>
+            Платёж и проценты не округляются между месяцами. До копеек округляется только то, что вы
+            видите на экране.
+          </p>
+        </div>
+        <div class="method__item">
+          <h3>Пересчёт при смене условий</h3>
+          <p>
+            Новая ставка, конец отсрочки, досрочный взнос — платёж считается заново на остаток и
+            оставшийся срок, как в банке.
+          </p>
+        </div>
+        <div class="method__item">
+          <h3>Открытые формулы</h3>
+          <p>
+            Каждая формула описана на странице <a href="/guide/">«Как мы считаем»</a>, а расчёт
+            проверен тестами против учебных примеров и банковских расчётников.
+          </p>
+        </div>
+      </div>
+    </section>
+  </Container>
+</BaseLayout>
+
+<style>
+  .hero {
+    display: grid;
+    gap: var(--space-7);
+    padding-block: var(--space-6) var(--space-8);
+  }
+
+  .hero__text {
+    display: grid;
+    gap: var(--space-5);
+    align-content: center;
+    max-width: 34rem;
+  }
+
+  .hero__title {
+    font-size: var(--text-3xl);
+    letter-spacing: -0.03em;
+  }
+
+  .hero__lead {
+    font-size: var(--text-lg);
+    color: var(--color-text-muted);
+    line-height: var(--leading-snug);
+  }
+
+  .hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  .ledger {
+    display: grid;
+    gap: var(--space-3);
+    padding: var(--space-5);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md);
+    background: var(--color-paper);
+    min-width: 0;
+  }
+
+  .ledger__caption {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .ledger__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  .ledger__table th,
+  .ledger__table td {
+    text-align: right;
+    padding: var(--space-2) var(--space-2);
+    border-bottom: 1px solid var(--color-rule);
+    white-space: nowrap;
+  }
+
+  .ledger__table thead th {
+    color: var(--color-text-muted);
+    font-weight: 500;
+    font-size: var(--text-xs);
+  }
+
+  .ledger__table tfoot th,
+  .ledger__table tfoot td {
+    border-bottom: 0;
+    border-top: 1px solid var(--color-rule-strong);
+    font-weight: 600;
+  }
+
+  .ledger__gap td {
+    text-align: center;
+    color: var(--color-text-muted);
+    padding-block: 0;
+    line-height: 1;
+  }
+
+  .ledger__principal {
+    color: var(--color-principal);
+  }
+
+  .ledger__interest {
+    color: var(--color-interest);
+  }
+
+  .ledger__note {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .sections,
+  .intents,
+  .method {
+    display: grid;
+    gap: var(--space-5);
+    padding-block: var(--space-7);
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .sections__heading,
+  .intents__heading,
+  .method__heading {
+    font-size: var(--text-xl);
+  }
+
+  .sections__grid {
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  .section-card {
+    display: grid;
+    gap: var(--space-3);
+    align-content: start;
+    padding: var(--space-6);
+    border: 1px solid var(--color-rule);
+    border-left: 4px solid var(--color-ink);
+    border-radius: var(--radius-md);
+    background: var(--color-paper);
+    text-decoration: none;
+  }
+
+  .section-card:hover {
+    border-color: var(--color-ink);
+  }
+
+  .section-card--soon {
+    border-left-color: var(--color-rule-strong);
+    color: var(--color-text-muted);
+  }
+
+  .section-card__title {
+    font-size: var(--text-xl);
+  }
+
+  .section-card__text {
+    color: var(--color-text-muted);
+  }
+
+  .section-card__cta {
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+
+  .intents__list {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .intents__link {
+    display: grid;
+    gap: var(--space-1);
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-rule);
+    text-decoration: none;
+  }
+
+  .intents__link:hover .intents__title {
+    color: var(--color-ink);
+  }
+
+  .intents__title {
+    font-weight: 600;
+  }
+
+  .intents__text {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .method__grid {
+    display: grid;
+    gap: var(--space-5);
+  }
+
+  .method__item {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .method__item h3 {
+    font-size: var(--text-base);
+  }
+
+  .method__item p {
+    color: var(--color-text-muted);
+  }
+
+  .method__item a {
+    color: var(--color-ink);
+  }
+
+  @media (min-width: 768px) {
+    .sections__grid,
+    .method__grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .method__grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .intents__list {
+      grid-template-columns: 1fr 1fr;
+      column-gap: var(--space-6);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .hero {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+      align-items: center;
+    }
+  }
+</style>
