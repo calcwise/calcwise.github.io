@@ -1,0 +1,144 @@
+/*
+ * Таблицы данных: график платежей, итоги по годам (organisms/schedule-table.astro,
+ * molecules/years-table.astro, строки — lib/schedule-render.ts) и мини-таблицы
+ * чувствительности. Лист с тенью, липкая шапка и итог, цветные колонки долга и процентов.
+ */
+
+.table-wrap {
+  overflow: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-panel);
+}
+
+.table-wrap--tall {
+  max-height: 70vh;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-paper);
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-size: var(--text-xs);
+}
+
+.table tbody th {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.table tfoot th,
+.table tfoot td {
+  position: sticky;
+  bottom: 0;
+  background: var(--color-paper);
+  font-weight: 600;
+  border-bottom: 0;
+  border-top: 1px solid var(--color-rule-strong);
+}
+
+.table tbody tr {
+  transition: var(--transition-ui);
+}
+
+.table tbody tr:hover {
+  background: var(--color-paper-2);
+}
+
+.table--schedule .schedule__row--year-end td,
+.table--schedule .schedule__row--year-end th {
+  border-bottom-color: var(--color-rule-strong);
+}
+
+.table--schedule .schedule__row--grace {
+  background: var(--color-grace-soft);
+}
+
+/* Закрывающая строка: кредит погашен раньше плана */
+.table--schedule .schedule__row--closed td {
+  text-align: left;
+  white-space: normal;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-principal-soft);
+  color: var(--color-text);
+  border-bottom: 0;
+}
+
+.table--schedule .schedule__row--closed strong {
+  color: var(--color-principal);
+}
+
+.schedule__tag {
+  display: inline-block;
+  margin-left: var(--space-2);
+  font-size: var(--text-2xs);
+  color: var(--color-interest);
+}
+
+.cell--principal {
+  color: var(--color-principal);
+}
+
+.cell--interest {
+  color: var(--color-interest);
+}
+
+.cell--prepay {
+  color: var(--color-prepay);
+}
+
+/* Мини-таблица «если ставка / срок будут другими»: без листа, текущая строка подсвечена */
+.mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-table th,
+.mini-table td {
+  padding: var(--space-2) var(--space-2);
+  text-align: right;
+  border-bottom: 1px solid var(--color-rule);
+  white-space: nowrap;
+}
+
+.mini-table thead th {
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-size: var(--text-xs);
+}
+
+.mini-table tbody th {
+  text-align: left;
+  font-weight: 500;
+}
+
+/* Первая колонка одной ширины в обеих таблицах: строки соседних таблиц на одних линиях */
+.mini-table th:first-child {
+  width: 6rem;
+}
+
+.mini-table__current {
+  background: var(--color-ink-soft);
+  font-weight: 600;
+}

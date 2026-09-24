@@ -1,0 +1,71 @@
+---
+/*
+ * Поле формы: подпись, поле с заливкой, ввод и единица измерения. Если в слот передан
+ * переключатель, он встаёт внутрь поля, а обёртка становится div с aria-labelledby —
+ * radio внутри label ломали бы связь подписи с полем.
+ * Классы и data-атрибуты читает lib/calculator-ui.ts: менять только вместе с ним.
+ */
+interface Props {
+  label: string;
+  /** Значение data-field, по которому скрипт находит поле */
+  field?: string;
+  unit?: string;
+  /** lg — крупные главные поля: сумма, ставка, срок */
+  size?: 'md' | 'lg';
+  inputmode?: 'decimal' | 'numeric';
+  placeholder?: string;
+  /** id подписи для варианта с переключателем внутри */
+  id?: string;
+  class?: string;
+  [key: `data-${string}`]: string | undefined;
+}
+const {
+  label,
+  field,
+  unit,
+  size = 'md',
+  inputmode = 'decimal',
+  placeholder,
+  id,
+  class: className,
+  ...rest
+} = Astro.props;
+const split = Astro.slots.has('default');
+const labelId = id ?? (split ? `${field ?? 'field'}-label` : undefined);
+const inputClasses = ['control__input', 'num', { 'control__input--lg': size === 'lg' }];
+---
+
+{
+  split ? (
+    <div class:list={['control', className]}>
+      <span class="control__label" id={labelId}>
+        {label}
+      </span>
+      <div class="control__field control__field--split">
+        <input
+          class:list={inputClasses}
+          data-field={field}
+          inputmode={inputmode}
+          placeholder={placeholder}
+          aria-labelledby={labelId}
+          {...rest}
+        />
+        <slot />
+      </div>
+    </div>
+  ) : (
+    <label class:list={['control', className]}>
+      <span class="control__label">{label}</span>
+      <span class="control__field">
+        <input
+          class:list={inputClasses}
+          data-field={field}
+          inputmode={inputmode}
+          placeholder={placeholder}
+          {...rest}
+        />
+        {unit && <span class="control__unit">{unit}</span>}
+      </span>
+    </label>
+  )
+}

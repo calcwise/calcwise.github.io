@@ -1,0 +1,39 @@
+---
+/*
+ * Меню действий на <details>: кнопка и список. Пункт с href — ссылка, без — кнопка.
+ * Поведение (закрытие по клику вне и Escape, обработчики data-action) — lib/calculator-ui.ts.
+ */
+interface Item {
+  action: string;
+  label: string;
+  href?: string;
+}
+
+interface Props {
+  items: Item[];
+  label?: string;
+  class?: string;
+}
+const { items, label = 'Действия', class: className } = Astro.props;
+---
+
+<details class:list={['menu', 'no-print', className]} data-menu>
+  <summary class="menu__button">{label}</summary>
+  <ul class="menu__list" role="list">
+    {
+      items.map((item) => (
+        <li>
+          {item.href ? (
+            <a class="menu__item" href={item.href} data-action={item.action}>
+              {item.label}
+            </a>
+          ) : (
+            <button type="button" class="menu__item" data-action={item.action}>
+              {item.label}
+            </button>
+          )}
+        </li>
+      ))
+    }
+  </ul>
+</details>

@@ -4,13 +4,25 @@ import type { FaqItem } from '@/lib/seo';
 interface Props {
   items: FaqItem[];
   heading?: string;
+  /** Ссылка на страницу, к которой относится группа вопросов */
+  href?: string;
   id?: string;
 }
-const { items, heading = 'Вопросы и ответы', id = 'faq' } = Astro.props;
+const { items, heading = 'Вопросы и ответы', href, id = 'faq' } = Astro.props;
 ---
 
 <section class="faq" aria-labelledby={`${id}-heading`} id={id}>
-  <h2 class="faq__heading" id={`${id}-heading`}>{heading}</h2>
+  <h2 class="faq__heading" id={`${id}-heading`}>
+    {
+      href ? (
+        <a class="faq__link" href={href}>
+          {heading}
+        </a>
+      ) : (
+        heading
+      )
+    }
+  </h2>
   <dl class="faq__list">
     {
       items.map((item) => (
@@ -33,6 +45,16 @@ const { items, heading = 'Вопросы и ответы', id = 'faq' } = Astro.
 
   .faq__heading {
     font-size: var(--text-xl);
+  }
+
+  .faq__link {
+    color: inherit;
+    text-decoration: none;
+    transition: var(--transition-ui);
+  }
+
+  .faq__link:hover {
+    color: var(--color-ink);
   }
 
   .faq__list {

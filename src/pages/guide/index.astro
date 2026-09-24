@@ -128,23 +128,18 @@ const jsonLd = [
         ставке P = S / n.
       </p>
       <p>
-        Пример: {fmtMoney(100_000)} под 12% на 12 месяцев. Месячная ставка 1%, платёж {
-          fmtMoney(example.summary.regularPayment)
-        }. В первый месяц проценты {fmtMoney(example.rows[0]!.interest)}, в долг уходит {
-          fmtMoney(example.rows[0]!.principal)
-        }. Переплата за год — {fmtMoney(example.summary.totalInterest)}.
+        Пример: {fmtMoney(100_000)} под 12% на 12 месяцев. {
+          `Месячная ставка 1%, платёж ${fmtMoney(example.summary.regularPayment)}. В первый месяц проценты ${fmtMoney(example.rows[0]!.interest)}, в долг уходит ${fmtMoney(example.rows[0]!.principal)}. Переплата за год — ${fmtMoney(example.summary.totalInterest)}.`
+        }
       </p>
 
       <h2 id="differentiated">Дифференцированный платёж</h2>
       <p class="formula">D = S / n; Платёж месяца = D + Остаток × r</p>
       <p>
         Долг гасится равными частями, проценты начисляются на уменьшающийся остаток, поэтому платёж
-        падает каждый месяц. Общая переплата: S × r × (n + 1) / 2. Для того же примера: первый
-        платёж
-        {fmtMoney(diffExample.rows[0]!.payment)}, последний {
-          fmtMoney(diffExample.summary.lastPayment)
-        }, переплата
-        {fmtMoney(diffExample.summary.totalInterest)} — меньше, чем у аннуитета.
+        падает каждый месяц. Общая переплата: S × r × (n + 1) / 2. Для того же примера: {
+          `первый платёж ${fmtMoney(diffExample.rows[0]!.payment)}, последний ${fmtMoney(diffExample.summary.lastPayment)}, переплата ${fmtMoney(diffExample.summary.totalInterest)}`
+        } — меньше, чем у аннуитета.
       </p>
 
       <h2 id="rounding">Округление: как в банке</h2>
@@ -207,6 +202,22 @@ const jsonLd = [
     </Prose>
 
     <Faq items={faq} />
+    <p class="guide__more">
+      Больше коротких ответов о работе калькулятора — на странице
+      <a href="/guide/faq/">«Вопросы и ответы»</a>.
+    </p>
     <Disclaimer />
   </Container>
 </BaseLayout>
+
+<style>
+  .guide__more {
+    margin-top: var(--space-5);
+    max-width: var(--measure);
+    color: var(--color-text-muted);
+  }
+
+  .guide__more a {
+    color: var(--color-ink);
+  }
+</style>

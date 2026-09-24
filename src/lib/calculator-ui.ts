@@ -66,8 +66,8 @@ interface FieldError {
 const numberInput = (attrs: Record<string, string | number | boolean | undefined>) =>
   el('input', { class: 'control__input num', inputmode: 'decimal', autocomplete: 'off', ...attrs });
 
-function labelled(label: string, input: HTMLElement, unit?: string): HTMLElement {
-  return el('label', { class: 'control' }, [
+function labelled(label: string, input: HTMLElement, unit?: string, className = ''): HTMLElement {
+  return el('label', { class: `control${className ? ` ${className}` : ''}` }, [
     el('span', { class: 'control__label', text: label }),
     el('span', { class: 'control__field' }, [
       input,
@@ -82,10 +82,10 @@ function segmented(
   key: string,
   options: Array<[string, string]>,
   value: string,
-  wide = false,
+  className = '',
 ): HTMLElement {
   const name = `seg-${key}-${++uid}`;
-  return el('div', { class: wide ? 'control control--wide' : 'control' }, [
+  return el('div', { class: `control${className ? ` ${className}` : ''}` }, [
     el('span', { class: 'control__label', text: label }),
     el(
       'div',
@@ -117,11 +117,13 @@ function renderRateRow(list: HTMLElement, rate: RatePeriod, onChange: () => void
       'С месяца',
       numberInput({ inputmode: 'numeric', value: String(rate.fromMonth), 'data-key': 'fromMonth' }),
       '№',
+      'row__a',
     ),
     labelled(
       'Ставка',
       numberInput({ value: fmtRate(rate.ratePercent), 'data-key': 'ratePercent' }),
       '%',
+      'row__b',
     ),
     removeButton(() => {
       row.remove();
@@ -137,10 +139,13 @@ function renderGraceRow(list: HTMLElement, grace: GracePeriod, onChange: () => v
       'С месяца',
       numberInput({ inputmode: 'numeric', value: String(grace.start), 'data-key': 'start' }),
       '№',
+      'row__a',
     ),
     labelled(
       'Месяцев',
       numberInput({ inputmode: 'numeric', value: String(grace.months), 'data-key': 'months' }),
+      undefined,
+      'row__b',
     ),
     removeButton(() => {
       row.remove();
@@ -152,31 +157,32 @@ function renderGraceRow(list: HTMLElement, grace: GracePeriod, onChange: () => v
 
 function renderPrepaymentRow(list: HTMLElement, p: Prepayment, onChange: () => void): void {
   const until = labelled(
-    'По месяц',
+    'До месяца',
     numberInput({
       inputmode: 'numeric',
       value: p.untilMonth ? String(p.untilMonth) : '',
       'data-key': 'untilMonth',
-      placeholder: 'до конца',
+      placeholder: 'конец',
     }),
     '№',
+    'row__until',
   );
   const repeat = segmented(
     'Повтор',
     'repeat',
     [
-      ['once', 'Раз'],
+      ['once', 'Разово'],
       ['monthly', 'Ежемесячно'],
       ['yearly', 'Ежегодно'],
     ],
     p.repeat,
-    true,
+    'row__repeat',
   );
   const monthLabel = el('span', {
     class: 'control__label',
     text: p.repeat === 'once' ? 'В месяце' : 'С месяца',
   });
-  const month = el('label', { class: 'control' }, [
+  const month = el('label', { class: 'control row__month' }, [
     monthLabel,
     el('span', { class: 'control__field' }, [
       numberInput({ inputmode: 'numeric', value: String(p.month), 'data-key': 'month' }),
@@ -187,6 +193,8 @@ function renderPrepaymentRow(list: HTMLElement, p: Prepayment, onChange: () => v
     labelled(
       'Сумма',
       numberInput({ value: formatAmountInput(String(p.amount)), 'data-key': 'amount' }),
+      undefined,
+      'row__amount',
     ),
     month,
     segmented(
@@ -197,6 +205,7 @@ function renderPrepaymentRow(list: HTMLElement, p: Prepayment, onChange: () => v
         ['payment', 'Платёж'],
       ],
       p.mode,
+      'row__mode',
     ),
     repeat,
     until,
@@ -443,25 +452,54 @@ function renderAnalysis(
   }
 }
 
-function renderTargetTerm(root: HTMLElement, state: CalculatorState): void {
+function renderTargetTerm(
+  root: HTMLElement,
+  state: CalculatorState,
+  apply: (p: Prepayment) => void,
+): void {
   const input = root.querySelector<HTMLInputElement>('[data-target-years]');
   const out = root.querySelector<HTMLElement>('[data-target-result]');
   if (!input || !out) return;
-  const years = parseNumber(input.value);
-  if (!Number.isFinite(years) || years <= 0) {
-    out.textContent = '';
+  const value = parseNumber(input.value);
+  if (!Number.isFinite(value) || value <= 0) {
+    clear(out);
     return;
   }
-  const target = Math.round(years * 12);
+  const inYears =
+    root.querySelector<HTMLInputElement>('input[name="target-unit"]:checked')?.value !== 'months';
+  const target = inYears ? Math.round(value * 12) : Math.round(value);
   try {
-    const extra = extraPaymentForTerm({ ...state, prepayments: [] }, target);
+    const base = { ...state, prepayments: [] };
+    const extra = extraPaymentForTerm(base, target);
     if (extra === null) {
       out.textContent = target >= plannedMonths(state) ? 'Это не короче текущего срока' : '';
       return;
     }
-    out.textContent = `Доплачивайте ${fmtMoney(extra)} каждый месяц сверх платежа — кредит закроется за ${fmtMonthsAsYears(target)}.`;
+    /* Доплаты начинаются с первого месяца, где гасится долг: в отсрочку их вносить нельзя */
+    const firstPaying = buildSchedule(base).rows.find((r) => !r.isGrace)?.month ?? 1;
+    const prepayment: Prepayment = {
+      month: firstPaying,
+      amount: extra,
+      mode: 'term',
+      repeat: 'monthly',
+    };
+    out.replaceChildren(
+      el('span', {
+        text: `Доплачивайте ${fmtMoney(extra)} каждый месяц сверх платежа — кредит закроется за ${fmtMonthsAsYears(target)}. `,
+      }),
+      el('button', {
+        type: 'button',
+        class: 'target__apply',
+        text: 'Добавить доплату в график',
+        onclick: () => {
+          apply(prepayment);
+          input.value = '';
+          clear(out);
+        },
+      }),
+    );
   } catch {
-    out.textContent = '';
+    clear(out);
   }
 }
 
@@ -539,6 +577,16 @@ export function initCalculator(root: HTMLElement): void {
 
   let current: CalculatorState = initial;
 
+  /* Цель «закрыть за N лет» переносится в график обычной строкой досрочного погашения:
+     её видно в условиях, можно править и удалить */
+  const applyTarget = (p: Prepayment) => {
+    clear(refs.prepayments);
+    renderPrepaymentRow(refs.prepayments, p, scheduleRecalc);
+    refs.extra.open = true;
+    recalc();
+    refs.prepayments.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
+  };
+
   const recalc = () => {
     const { state, errors } = readForm(refs);
     let result: ScheduleResult | null = null;
@@ -563,7 +611,7 @@ export function initCalculator(root: HTMLElement): void {
     renderScheduleTable(root, result);
     const effect = renderEffect(root, result);
     renderAnalysis(root, state, result, effect?.baseline);
-    renderTargetTerm(root, state);
+    renderTargetTerm(root, state, applyTarget);
     if (!pageHasPreset) save(state);
     const url = new URL(location.href);
     url.search = encodeState(state).toString();
@@ -665,9 +713,12 @@ export function initCalculator(root: HTMLElement): void {
         link.href = url.toString();
       });
   }
+  qa<HTMLInputElement>(root, 'input[name="target-unit"]').forEach((radio) =>
+    radio.addEventListener('change', () => renderTargetTerm(root, current, applyTarget)),
+  );
   root.querySelector('[data-target-years]')?.addEventListener(
     'input',
-    debounce(() => renderTargetTerm(root, current), 200),
+    debounce(() => renderTargetTerm(root, current, applyTarget), 200),
   );
 
   recalc();

@@ -46,12 +46,19 @@
   /* Заливка полей ввода: без обводки, поле читается по фону */
   --color-field: light-dark(#f1f2ef, #262a34);
   --color-field-hover: light-dark(#eaebe7, #2c313c);
-  /* Активная «таблетка» сегментного переключателя: в тёмной теме светлее дорожки */
-  --color-thumb: light-dark(#ffffff, #3a4152);
+  /* Всплывающие панели (меню действий): в тёмной теме светлее листа, иначе сливаются */
+  --color-elevated: light-dark(#ffffff, #2b303c);
+  --color-elevated-ring: light-dark(rgb(22 26 36 / 8%), rgb(255 255 255 / 14%));
+  /* Сегментный переключатель: дорожка на две ступени темнее поля, активная «таблетка» —
+     светлый лист с тенью и тонким кольцом; в тёмной теме таблетка светлее дорожки */
+  --color-track: light-dark(#e1e3de, #1f232c);
+  --color-thumb: light-dark(#ffffff, #3f475a);
+  --color-thumb-ring: light-dark(rgb(22 26 36 / 12%), rgb(255 255 255 / 10%));
 
   /* Типографика: Golos Text — один шрифт для всего, табличные цифры в данных */
   --font-sans:
     'Golos Text', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --text-2xs: 0.6875rem;
   --text-xs: 0.8125rem;
   --text-sm: 0.9375rem;
   --text-base: 1.0625rem;
@@ -84,7 +91,7 @@
   --radius-full: 999px;
   /* Поверхности различаются тенью, а не обводкой: лист, таблетка сегмента, выпадающее меню */
   --shadow-panel: 0 1px 2px rgb(22 26 36 / 6%), 0 8px 24px -12px rgb(22 26 36 / 18%);
-  --shadow-thumb: 0 1px 2px rgb(22 26 36 / 14%), 0 0 0 1px rgb(22 26 36 / 4%);
+  --shadow-thumb: 0 1px 2px rgb(22 26 36 / 14%), 0 0 0 1px var(--color-thumb-ring);
   --shadow-menu:
     0 12px 32px -8px rgb(22 26 36 / 28%),
     0 0 0 1px light-dark(rgb(22 26 36 / 6%), rgb(232 234 240 / 10%));
@@ -92,7 +99,9 @@
   --container-pad: clamp(1rem, 4vw, 2.5rem);
   --header-height: 4rem;
   --tab-bar-height: 3.75rem;
+  /* Высота поля, кнопки и переключателя; --tap-min — минимальная цель нажатия (44px) */
   --control-height: 3rem;
+  --tap-min: 2.75rem;
 
   /* Вырезы экрана в standalone-режиме */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -102,6 +111,10 @@
 
   --duration-fast: 120ms;
   --duration-base: 200ms;
+  /* Единый переход на hover и focus: фон, цвет, тень. Анимаций появления нет */
+  --transition-ui:
+    background-color var(--duration-fast), color var(--duration-fast),
+    box-shadow var(--duration-fast);
 }
 
 /* Браузеры без light-dark(): светлые значения */
@@ -131,7 +144,11 @@
     --color-danger-soft: #fbe9e7;
     --color-field: #f1f2ef;
     --color-field-hover: #eaebe7;
+    --color-elevated: #ffffff;
+    --color-elevated-ring: rgb(22 26 36 / 8%);
+    --color-track: #e1e3de;
     --color-thumb: #ffffff;
+    --color-thumb-ring: rgb(22 26 36 / 12%);
     --shadow-menu: 0 12px 32px -8px rgb(22 26 36 / 28%), 0 0 0 1px rgb(22 26 36 / 6%);
   }
 }

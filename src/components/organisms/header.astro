@@ -53,6 +53,8 @@ const currentPath = normalizePath(Astro.url.pathname);
 
   .header__logo {
     display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
     text-decoration: none;
     border-radius: var(--radius-sm);
   }
@@ -72,12 +74,13 @@ const currentPath = normalizePath(Astro.url.pathname);
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    min-height: 2.75rem;
+    min-height: var(--tap-min);
     padding: 0 var(--space-4);
     border-radius: var(--radius-md);
     text-decoration: none;
     font-weight: 500;
     color: var(--color-text-muted);
+    transition: var(--transition-ui);
   }
 
   .header__link:hover {

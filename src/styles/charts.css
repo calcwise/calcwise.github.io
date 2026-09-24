@@ -1,0 +1,132 @@
+/*
+ * Графики на SVG (lib/charts.ts, lib/compare-ui.ts) и полоса долей выплат.
+ * SVG рисуется в viewBox 720×260 и масштабируется под контейнер, поэтому подписи осей
+ * задаются в единицах viewBox и растут через container query, когда контейнер узкий:
+ * на экране они остаются около 10–12 px. Уже 28rem график не сжимается, а прокручивается.
+ */
+
+.chart-box {
+  container-type: inline-size;
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-panel);
+  padding: var(--space-3);
+}
+
+.chart {
+  width: 100%;
+  min-width: 28rem;
+  height: auto;
+  overflow: visible;
+  font-family: var(--font-sans);
+}
+
+.chart__grid {
+  stroke: var(--color-rule);
+  stroke-width: 1;
+}
+
+.chart__tick,
+.chart__note {
+  fill: var(--color-text-muted);
+  font-size: var(--chart-label-size, 11px);
+}
+
+/* Широкий контейнер растягивает SVG больше исходного: подписи уменьшаются */
+@container (min-width: 66rem) {
+  .chart {
+    --chart-label-size: 8px;
+  }
+}
+
+@container (min-width: 55rem) and (max-width: 66rem) {
+  .chart {
+    --chart-label-size: 9px;
+  }
+}
+
+@container (max-width: 55rem) {
+  .chart {
+    --chart-label-size: 12px;
+  }
+}
+
+@container (max-width: 44rem) {
+  .chart {
+    --chart-label-size: 13px;
+  }
+}
+
+@container (max-width: 35rem) {
+  .chart {
+    --chart-label-size: 16px;
+  }
+
+  /* Пояснение к маркеру при таком масштабе нечитаемо: остаётся только линия */
+  .chart__note {
+    display: none;
+  }
+}
+
+.chart__line {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+}
+
+.chart__line--baseline {
+  stroke: var(--color-text-muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.chart__line--s0 {
+  stroke: var(--color-ink);
+}
+
+.chart__line--s1 {
+  stroke: var(--color-interest);
+}
+
+.chart__line--s2 {
+  stroke: var(--color-prepay);
+}
+
+.chart__area {
+  fill: var(--color-ink-soft);
+}
+
+.chart__marker {
+  stroke: var(--color-principal);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.chart__bar--principal {
+  fill: var(--color-principal);
+}
+
+.chart__bar--interest {
+  fill: var(--color-interest);
+}
+
+/* Доли долга и процентов во всех выплатах */
+.share {
+  display: flex;
+  height: var(--space-3);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--color-paper-2);
+}
+
+.share__principal {
+  background: var(--color-principal);
+  transition: width var(--duration-base);
+}
+
+.share__interest {
+  background: var(--color-interest);
+  transition: width var(--duration-base);
+}

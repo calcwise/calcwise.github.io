@@ -9,14 +9,18 @@ import { siteConfig } from '@/config/site';
 import { mortgageFaq, mortgagePages } from '@/lib/mortgage-pages';
 import { breadcrumbsJsonLd, faqJsonLd } from '@/lib/seo';
 
-const path = '/faq/';
+const path = '/guide/faq/';
 const title = 'Вопросы и ответы о расчёте кредита';
 const description =
   'Что умеет калькулятор, почему цифры совпадают с банком, как задать льготную ставку, отсрочку и досрочное погашение, чем аннуитет отличается от дифференцированного графика.';
 
 const groups = [
-  { heading: 'Общие вопросы', items: mortgageFaq },
-  ...mortgagePages.map((page) => ({ heading: page.title, items: page.faq })),
+  { heading: 'Общие вопросы', href: undefined as string | undefined, items: mortgageFaq },
+  ...mortgagePages.map((page) => ({
+    heading: page.title,
+    href: `/mortgage/${page.slug}/`,
+    items: page.faq,
+  })),
 ];
 const all = groups.flatMap((g) => g.items);
 ---
@@ -29,6 +33,7 @@ const all = groups.flatMap((g) => g.items);
     faqJsonLd(all),
     breadcrumbsJsonLd(siteConfig.siteUrl, [
       { name: 'Главная', path: '/' },
+      { name: 'Справка', path: '/guide/' },
       { name: 'Вопросы и ответы', path },
     ]),
   ]}
@@ -60,13 +65,16 @@ const all = groups.flatMap((g) => g.items);
         </li>
       </ul>
       <p>
-        Все расчёты — на странице <a href="/mortgage/">калькулятора ипотеки</a>, методика описана в
-        разделе
-        <a href="/guide/">«Как считаем»</a>.
+        Все расчёты — на странице <a href="/mortgage/">калькулятора ипотеки</a>, методика описана на
+        странице <a href="/guide/">«Как считаем»</a>.
       </p>
     </Prose>
 
-    {groups.map((group, i) => <Faq items={group.items} heading={group.heading} id={`faq-${i}`} />)}
+    {
+      groups.map((group, i) => (
+        <Faq items={group.items} heading={group.heading} href={group.href} id={`faq-${i}`} />
+      ))
+    }
     <Disclaimer />
   </Container>
 </BaseLayout>

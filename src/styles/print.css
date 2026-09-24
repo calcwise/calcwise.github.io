@@ -1,0 +1,105 @@
+/*
+ * Печать: только условия, ключевые цифры и таблицы. Нулевые поля страницы убирают
+ * колонтитулы браузера (адрес, дата, номер страницы); собственные поля задаёт body.
+ */
+
+@page {
+  size: auto;
+  margin: 0;
+}
+
+@media print {
+  html {
+    font-size: 12px;
+  }
+
+  body {
+    display: block;
+    background: #fff;
+    color: #000;
+    padding: 12mm 10mm;
+  }
+
+  a {
+    text-decoration: none;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .table-wrap,
+  .chart-box {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    border-radius: 0;
+  }
+
+  .table-wrap {
+    display: block;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .table thead th,
+  .table tfoot th,
+  .table tfoot td {
+    position: static;
+  }
+
+  .table thead th {
+    color: #444;
+  }
+
+  .table th,
+  .table td {
+    padding: 3px 6px;
+    font-size: 10px;
+    border-bottom-color: #ddd;
+  }
+
+  .table tbody tr {
+    break-inside: avoid;
+  }
+
+  .table thead {
+    display: table-header-group;
+  }
+
+  /* Итог только в конце таблицы, а не на каждой странице */
+  .table tfoot {
+    display: table-row-group;
+  }
+
+  .table--schedule .schedule__row--closed td {
+    background: #e6f2ec !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .table--schedule .schedule__row--grace {
+    background: #f4efe4 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .cell--principal,
+  .cell--interest,
+  .cell--prepay,
+  .share {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .stats,
+  .stats--inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4mm 10mm;
+  }
+
+  .stat__value {
+    font-size: 12px;
+  }
+}

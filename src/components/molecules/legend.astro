@@ -1,0 +1,37 @@
+---
+/*
+ * Легенда к таблице и графикам: квадратик цвета данных и подпись.
+ * Скрипт показывает и прячет элементы по data-out (`out`) и переписывает
+ * текст подписи по data-out (`labelOut`), поэтому подпись обёрнута в span.
+ */
+export interface LegendItem {
+  label: string;
+  tone: 'principal' | 'interest' | 'grace' | 'prepay' | 'line' | 'dashed';
+  out?: string;
+  labelOut?: string;
+  hidden?: boolean;
+}
+
+interface Props {
+  items?: LegendItem[];
+  hidden?: boolean;
+  class?: string;
+  [key: `data-${string}`]: string | undefined;
+}
+const { items = [], hidden = false, class: className, ...rest } = Astro.props;
+---
+
+<p class:list={['legend', className]} hidden={hidden} {...rest}>
+  {
+    items.map((item) => (
+      <span
+        class:list={['legend__item', `legend__item--${item.tone}`]}
+        data-out={item.out}
+        hidden={item.hidden}
+      >
+        <i />
+        {item.labelOut ? <span data-out={item.labelOut}>{item.label}</span> : item.label}
+      </span>
+    ))
+  }
+</p>

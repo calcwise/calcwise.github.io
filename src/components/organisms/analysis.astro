@@ -1,0 +1,110 @@
+---
+/*
+ * Аналитика расчёта: доля долга и процентов, графики, итоги по годам, чувствительность
+ * к ставке и сроку. Стартовое содержимое — при сборке, пересчёт — lib/calculator-ui.ts.
+ */
+import Legend from '@/components/molecules/legend.astro';
+import YearsTable from '@/components/molecules/years-table.astro';
+import { balanceChart, yearsChart } from '@/lib/charts';
+import { rateSensitivity, termSensitivity, yearSummaries } from '@/lib/mortgage';
+import type { ScheduleResult } from '@/lib/mortgage';
+import { sensitivityHtml, shareText } from '@/lib/schedule-render';
+import type { CalculatorState } from '@/lib/url-state';
+
+interface Props {
+  initial: CalculatorState;
+  result: ScheduleResult;
+}
+const { initial, result } = Astro.props;
+const share = shareText(result);
+---
+
+<section class="analysis" aria-labelledby="analysis-heading">
+  <h2 class="results__heading" id="analysis-heading">Как распределяются выплаты</h2>
+  <div class="analysis__share">
+    <div class="share" data-out="share" aria-hidden="true">
+      <span class="share__principal" style={`width:${share.principal}%`}></span>
+      <span class="share__interest" style={`width:${100 - share.principal}%`}></span>
+    </div>
+    <Legend
+      items={[
+        { tone: 'principal', label: share.labelPrincipal, labelOut: 'share-principal' },
+        { tone: 'interest', label: share.labelInterest, labelOut: 'share-interest' },
+      ]}
+    />
+  </div>
+
+  <div class="analysis__charts no-print">
+    <div class="analysis__block">
+      <h3 class="results__subheading">Остаток долга</h3>
+      <div class="chart-box" data-chart="balance" set:html={balanceChart(result)} />
+      <Legend
+        data-out="balance-legend"
+        hidden
+        items={[
+          { tone: 'line', label: 'с досрочными погашениями' },
+          { tone: 'dashed', label: 'без них' },
+        ]}
+      />
+    </div>
+    <div class="analysis__block">
+      <h3 class="results__subheading">Выплаты по годам</h3>
+      <div class="chart-box" data-chart="years" set:html={yearsChart(yearSummaries(result))} />
+    </div>
+  </div>
+
+  <div class="analysis__block">
+    <h3 class="results__subheading">Итоги по годам</h3>
+    <YearsTable result={result} />
+  </div>
+
+  <div class="analysis__pair no-print">
+    <div class="analysis__block">
+      <h3 class="results__subheading">Если ставка будет другой</h3>
+      <div data-out="sens-rate" set:html={sensitivityHtml(rateSensitivity(initial), 'Ставка')} />
+    </div>
+    <div class="analysis__block">
+      <h3 class="results__subheading">Если срок будет другим</h3>
+      <div data-out="sens-term" set:html={sensitivityHtml(termSensitivity(initial), 'Срок')} />
+    </div>
+  </div>
+</section>
+
+<style>
+  .analysis {
+    display: grid;
+    gap: var(--space-5);
+    min-width: 0;
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--color-rule);
+  }
+
+  /* align-content: start — иначе в паре колонок более короткий блок растягивает
+     свои строки и его заголовок с таблицей уезжают вниз относительно соседа */
+  .analysis__share,
+  .analysis__block {
+    display: grid;
+    gap: var(--space-3);
+    align-content: start;
+    min-width: 0;
+  }
+
+  .analysis__charts,
+  .analysis__pair {
+    display: grid;
+    gap: var(--space-5);
+  }
+
+  @media (min-width: 768px) {
+    .analysis__pair {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  /* Графики рядом только там, где каждому хватает ширины для читаемых подписей осей */
+  @media (min-width: 1280px) {
+    .analysis__charts {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+</style>

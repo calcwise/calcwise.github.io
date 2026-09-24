@@ -1,0 +1,40 @@
+---
+/*
+ * Сегментный переключатель — radiogroup из радиокнопок вместо select.
+ * inline — вариант внутри поля ввода (единица срока). Ту же разметку строит
+ * lib/calculator-ui.ts для строк условий.
+ */
+interface Option {
+  value: string;
+  label: string;
+}
+
+interface Props {
+  /** Имя группы радиокнопок: по нему скрипт читает значение */
+  name: string;
+  /** Подпись группы для читалок */
+  label: string;
+  options: Option[];
+  value: string;
+  inline?: boolean;
+  class?: string;
+  [key: `data-${string}`]: string | undefined;
+}
+const { name, label, options, value, inline = false, class: className, ...rest } = Astro.props;
+---
+
+<div
+  class:list={['segmented', { 'segmented--inline': inline }, className]}
+  role="radiogroup"
+  aria-label={label}
+  {...rest}
+>
+  {
+    options.map((option) => (
+      <label class="segmented__option">
+        <input type="radio" name={name} value={option.value} checked={option.value === value} />
+        <span>{option.label}</span>
+      </label>
+    ))
+  }
+</div>

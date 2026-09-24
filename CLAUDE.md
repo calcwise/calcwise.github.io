@@ -33,8 +33,10 @@ src/
 │   └── guide/        formulas and methodology (Article + FAQ markup)
 ├── components/
 │   ├── atoms/        container, button, logo
+│   ├── molecules/    field, segmented, stat-list, figure, legend, years-table
 │   ├── organisms/    header, tab-bar, footer, page-intro, prose, faq, disclaimer,
-│   │                 mortgage-calculator (form + results shell)
+│   │                 calculator-form, results-summary, actions-menu, analysis,
+│   │                 schedule-table, mortgage-calculator (composes the above)
 │   └── templates/    base-layout.astro — <head>, header, footer, tab bar, JSON-LD
 ├── lib/              all logic as plain TypeScript (no astro imports)
 │   ├── mortgage/     schedule engine: types, money, validate, schedule, analysis + tests
@@ -44,7 +46,9 @@ src/
 │   ├── mortgage-pages.ts  content of /mortgage/<slug>/ intent pages
 │   ├── schedule-render.ts HTML strings for results, shared by build-time prerender and client
 │   └── seo.ts, menu.ts, format.ts, csv.ts, dom.ts, lastmod.ts, speculation.ts
-└── config/           site.ts, tokens.css, components.css, fonts.css, global.css
+├── styles/           one file per shared component (controls, segmented, rows, tables,
+│                     stats, legend, charts, menu, results, print) + base.css
+└── config/           site.ts, tokens.css, fonts.css, global.css (imports styles/* in order)
 
 public/               fonts (Golos Text), icons, robots.txt, manifest, .htaccess
 reference/            read-only: cooperative draft and the standalone v1 calculator
@@ -86,8 +90,12 @@ Two data colours carry meaning everywhere (summary, tables, charts, logo): `--co
 mobile-first, touch targets ≥ 44px. Navigation: bottom tab bar below 1024px, header menu from
 1024px, items shared from `lib/menu.ts`. `[hidden]` always wins over component `display`.
 
-Shared form/table/chart CSS lives in `config/components.css` because both the calculator and
-the compare page need it.
+Shared CSS lives in `src/styles/*.css`, one file per component, imported from
+`config/global.css` in order (base → controls → segmented → rows → tables → stats → legend →
+charts → menu → results → print). These classes are also created by `lib/*-ui.ts` and
+`lib/schedule-render.ts`, so markup and CSS change together. Sizes: `--control-height` (3rem)
+for fields, buttons and switches, `--tap-min` (2.75rem) for every touch target, hover/focus
+transitions only via `--transition-ui`.
 
 ## SEO
 

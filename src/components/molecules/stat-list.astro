@@ -1,0 +1,25 @@
+---
+/*
+ * Список ключевых цифр (dl): подпись, значение, примечание. Разметку строк даёт
+ * lib/schedule-render.ts — та же строка, что скрипт вставляет при пересчёте,
+ * поэтому страница приходит с цифрами и не прыгает.
+ */
+import { statsHtml } from '@/lib/schedule-render';
+import type { Stat } from '@/lib/schedule-render';
+
+interface Props {
+  stats?: Stat[];
+  /** В строку рядом с главной цифрой, без линеек слева */
+  inline?: boolean;
+  /** data-out, по которому скрипт обновляет список */
+  out?: string;
+  class?: string;
+}
+const { stats = [], inline = false, out, class: className } = Astro.props;
+---
+
+<dl
+  class:list={['stats', { 'stats--inline': inline }, className]}
+  data-out={out}
+  set:html={statsHtml(stats)}
+/>

@@ -79,10 +79,11 @@ const currentPath = normalizePath(Astro.url.pathname);
     justify-content: center;
     gap: 2px;
     height: 100%;
-    min-width: 44px;
+    min-width: var(--tap-min);
     text-decoration: none;
     font-size: var(--text-xs);
     color: var(--color-text-muted);
+    transition: var(--transition-ui);
   }
 
   .tab-bar__link[aria-current='page'] {

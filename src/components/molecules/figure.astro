@@ -1,0 +1,46 @@
+---
+/*
+ * Главная цифра результата — размер платежа — с подписью над ней и примечанием под ней.
+ * Значения обновляет lib/schedule-render.ts по data-out.
+ */
+interface Props {
+  label: string;
+  value?: string;
+  note?: string;
+  class?: string;
+}
+const { label, value = '', note = '', class: className } = Astro.props;
+---
+
+<p class:list={['figure', className]}>
+  <span class="figure__label" data-out="figure-label">{label}</span>
+  <strong class="figure__value num" data-out="figure">{value}</strong>
+  <span class="figure__note num" data-out="figure-note">{note}</span>
+</p>
+
+<style>
+  .figure {
+    display: grid;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+
+  .figure__label {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .figure__value {
+    font-size: var(--text-figure);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  /* Высота зарезервирована: примечание появляется и исчезает без сдвига строки */
+  .figure__note {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    min-height: 1.5em;
+  }
+</style>

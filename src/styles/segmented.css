@@ -1,0 +1,91 @@
+/*
+ * Сегментный переключатель (radiogroup) вместо select: дорожка с активной «таблеткой».
+ * Отдельно и внутри поля (--inline). Создают molecules/segmented.astro и lib/*-ui.ts.
+ */
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: var(--color-track);
+  min-height: var(--control-height);
+}
+
+/* Внутри поля ввода: своя дорожка с отступом 2px от краёв поля, читается как элемент в поле */
+.segmented--inline {
+  flex: none;
+  align-self: stretch;
+  min-height: 0;
+  margin-block: 2px;
+  padding: 2px;
+  border-radius: calc(var(--radius-md) - 2px);
+}
+
+/* Опции делят ширину по содержимому: длинная подпись не режется. Если места нет
+   и опции переносятся, каждая строка остаётся полной высоты */
+.segmented__option {
+  flex: 1 1 auto;
+  display: flex;
+  position: relative;
+  min-width: 0;
+  min-height: calc(var(--control-height) - 6px);
+}
+
+.segmented--inline .segmented__option {
+  min-height: var(--tap-min);
+}
+
+/* Внутри поля сегменты короткие («лет», «мес.»): ширина не меньше цели нажатия, а по высоте
+   область нажатия выходит за дорожку на 4px вверх и вниз — до полных 48px поля */
+.segmented--inline .segmented__option {
+  min-width: var(--tap-min);
+  padding-block: var(--space-1);
+  margin-block: calc(-1 * var(--space-1));
+}
+
+.segmented__option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmented__option span {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-2);
+  border-radius: calc(var(--radius-md) - 3px);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: var(--transition-ui);
+}
+
+.segmented__option span:hover {
+  color: var(--color-text);
+}
+
+.segmented__option input:checked + span {
+  background: var(--color-thumb);
+  color: var(--color-text);
+  font-weight: 600;
+  box-shadow: var(--shadow-thumb);
+}
+
+.segmented__option input:focus-visible + span {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+/* На самых узких экранах «Аннуитетный | Дифференцированный» умещаются в одну строку */
+@media (max-width: 479px) {
+  .segmented__option span {
+    padding: 0 var(--space-1);
+  }
+}

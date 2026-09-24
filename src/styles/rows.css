@@ -1,0 +1,129 @@
+/*
+ * Строки дополнительных условий калькулятора (ставка по периодам, отсрочка, досрочка)
+ * и кнопки «Добавить …» / «×». Строки рисует lib/calculator-ui.ts; кнопку «×»
+ * использует и карточка сценария на странице сравнения.
+ */
+
+.rows {
+  display: grid;
+  gap: var(--space-3);
+}
+
+/*
+ * Поля стоят в сетке, кнопка удаления — в узкой последней колонке на уровне полей.
+ * У строки досрочки поля именованы областями: на телефоне они складываются
+ * в четыре ряда, от 768px — в две линии (одной линии не хватает даже на 1280px:
+ * переключатели повтора и режима переносились бы).
+ */
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) var(--control-height);
+  grid-template-areas: 'a b remove';
+  gap: var(--space-3);
+  align-items: end;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.row__a {
+  grid-area: a;
+}
+
+.row__b {
+  grid-area: b;
+}
+
+.row--prepay {
+  grid-template-areas:
+    'amount month remove'
+    'mode mode mode'
+    'repeat repeat repeat'
+    'until until until';
+}
+
+.row__amount {
+  grid-area: amount;
+}
+
+.row__month {
+  grid-area: month;
+}
+
+.row__mode {
+  grid-area: mode;
+}
+
+.row__repeat {
+  grid-area: repeat;
+}
+
+.row__until {
+  grid-area: until;
+}
+
+.row__until.control--hidden {
+  display: none;
+}
+
+.row__remove {
+  grid-area: remove;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-field);
+  color: var(--color-text-muted);
+  font-size: var(--text-lg);
+  line-height: 1;
+  cursor: pointer;
+  transition: var(--transition-ui);
+}
+
+.row__remove:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+@media (min-width: 768px) {
+  .row--rate,
+  .row--grace {
+    grid-template-columns: minmax(0, 12rem) minmax(0, 12rem) var(--control-height);
+  }
+
+  /* Досрочка в две линии: сумма, месяц и режим сверху; повтор и граница повторов снизу */
+  .row--prepay {
+    grid-template-columns:
+      minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 1.3fr)
+      var(--control-height);
+    grid-template-areas:
+      'amount month mode remove'
+      'repeat repeat until .';
+  }
+}
+
+/* Кнопка «Добавить …»: текстовая, чернилами, высотой в цель нажатия */
+.add {
+  justify-self: start;
+  min-height: var(--tap-min);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-ui);
+}
+
+.add:hover {
+  background: var(--color-ink-soft);
+}

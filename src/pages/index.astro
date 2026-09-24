@@ -120,24 +120,28 @@ const rate = DEFAULT_STATE.rates[0]!.ratePercent;
     </section>
 
     <section class="intents" aria-labelledby="intents-heading">
-      <h2 class="intents__heading" id="intents-heading">Отдельные расчёты</h2>
+      <h2 class="intents__heading" id="intents-heading">Калькуляторы ипотеки</h2>
       <ul class="intents__list">
-        {
-          mortgagePages.map((page) => (
-            <li>
-              <a class="intents__link" href={`/mortgage/${page.slug}/`}>
-                <span class="intents__title">{page.title}</span>
-                <span class="intents__text">{page.description.split('.')[0]}.</span>
-              </a>
-            </li>
-          ))
-        }
         <li>
-          <a class="intents__link" href="/mortgage/compare/">
-            <span class="intents__title">Сравнение вариантов</span>
-            <span class="intents__text">До трёх сценариев рядом: банки, сроки, типы платежей</span>
+          <a class="intents__link" href="/mortgage/">
+            <span class="intents__title">Калькулятор ипотеки</span>
+            <span class="intents__text"
+              >Все условия: ставка по периодам, отсрочка, досрочные погашения</span
+            >
           </a>
         </li>
+        {
+          mortgagePages
+            .filter((page) => page.slug === 'annuity' || page.slug === 'differentiated')
+            .map((page) => (
+              <li>
+                <a class="intents__link" href={`/mortgage/${page.slug}/`}>
+                  <span class="intents__title">{page.title}</span>
+                  <span class="intents__text">{page.description.split('.')[0]}.</span>
+                </a>
+              </li>
+            ))
+        }
       </ul>
     </section>
 
@@ -313,7 +317,11 @@ const rate = DEFAULT_STATE.rates[0]!.ratePercent;
     background: var(--color-paper);
     box-shadow: var(--shadow-panel);
     text-decoration: none;
-    transition: background-color var(--duration-fast);
+  }
+
+  .section-card__title,
+  .intents__title {
+    transition: var(--transition-ui);
   }
 
   .section-card:hover .section-card__title {
@@ -331,7 +339,7 @@ const rate = DEFAULT_STATE.rates[0]!.ratePercent;
   }
 
   .section-card__title {
-    font-size: var(--text-xl);
+    font-size: var(--text-lg);
   }
 
   .section-card__text {

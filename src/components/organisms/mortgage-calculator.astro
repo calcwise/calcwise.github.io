@@ -1,22 +1,16 @@
 ---
 /*
- * Калькулятор ипотеки. Сверху компактная форма, ниже результаты: ключевые цифры,
- * меню действий, таблица графика (главный блок) и аналитика. Динамику рисует
- * lib/calculator-ui.ts; стартовое состояние — в data-initial.
+ * Калькулятор ипотеки: форма, шапка результатов, таблица графика (главный блок),
+ * эффект досрочек и аналитика. Динамику рисует lib/calculator-ui.ts; стартовое
+ * состояние — в data-initial.
  */
+import Legend from '@/components/molecules/legend.astro';
+import Analysis from '@/components/organisms/analysis.astro';
+import CalculatorForm from '@/components/organisms/calculator-form.astro';
+import ResultsSummary from '@/components/organisms/results-summary.astro';
 import ScheduleTable from '@/components/organisms/schedule-table.astro';
-import { balanceChart, yearsChart } from '@/lib/charts';
-import { buildSchedule, rateSensitivity, termSensitivity, yearSummaries } from '@/lib/mortgage';
-import {
-  describeState,
-  figureText,
-  keyStats,
-  rowsCountText,
-  sensitivityHtml,
-  shareText,
-  statsHtml,
-  yearsRowsHtml,
-} from '@/lib/schedule-render';
+import { buildSchedule } from '@/lib/mortgage';
+import { rowsCountText } from '@/lib/schedule-render';
 import type { CalculatorState } from '@/lib/url-state';
 
 interface Props {
@@ -30,9 +24,6 @@ const { initial, preset = false } = Astro.props;
    уже с цифрами и таблицей, скрипт лишь подхватывает форму. Без прыжков макета
    и с осмысленным содержимым без JavaScript. */
 const result = buildSchedule(initial);
-const figure = figureText(result);
-const share = shareText(result);
-const conditions = describeState(initial, result);
 ---
 
 <section
@@ -41,176 +32,12 @@ const conditions = describeState(initial, result);
   data-initial={JSON.stringify(initial)}
   data-preset={preset ? '1' : '0'}
 >
-  <form
-    class="calc__form no-print"
-    data-form
-    novalidate
-    autocomplete="off"
-    aria-label="Параметры кредита"
-  >
-    <div class="calc__main">
-      <label class="control">
-        <span class="control__label">Сумма кредита</span>
-        <span class="control__field">
-          <input
-            class="control__input control__input--lg num"
-            data-field="amount"
-            inputmode="decimal"
-          />
-        </span>
-      </label>
-      <label class="control">
-        <span class="control__label">Ставка</span>
-        <span class="control__field">
-          <input
-            class="control__input control__input--lg num"
-            data-field="rate"
-            inputmode="decimal"
-          />
-          <span class="control__unit">% годовых</span>
-        </span>
-      </label>
-      <div class="control">
-        <span class="control__label" id="term-label">Срок</span>
-        <div class="control__field control__field--split">
-          <input
-            class="control__input control__input--lg num"
-            data-field="term"
-            inputmode="decimal"
-            aria-labelledby="term-label"
-          />
-          <span class="segmented segmented--inline" role="radiogroup" aria-label="Единица срока">
-            <label class="segmented__option"
-              ><input type="radio" name="term-unit" value="years" checked /><span>лет</span></label
-            >
-            <label class="segmented__option"
-              ><input type="radio" name="term-unit" value="months" /><span>мес.</span></label
-            >
-          </span>
-        </div>
-      </div>
-      <fieldset class="control control--fieldset">
-        <legend class="control__label">Тип платежей</legend>
-        <div class="segmented" role="radiogroup" aria-label="Тип платежей">
-          <label class="segmented__option"
-            ><input type="radio" name="type" value="annuity" checked /><span>Аннуитетный</span
-            ></label
-          >
-          <label class="segmented__option"
-            ><input type="radio" name="type" value="diff" /><span>Дифференцированный</span></label
-          >
-        </div>
-      </fieldset>
-    </div>
-
-    <details class="calc__extra" data-extra>
-      <summary class="calc__extra-summary">
-        <span class="calc__extra-title">Дополнительные условия</span>
-        <span class="calc__extra-hint" data-out="extra-hint"
-          >ставка по периодам, отсрочка, досрочные погашения</span
-        >
-      </summary>
-      <div class="calc__extra-body">
-        <section class="block" aria-labelledby="rates-heading">
-          <div class="block__head">
-            <h2 class="block__title" id="rates-heading">Ставка по периодам</h2>
-            <p class="block__hint">
-              Например, льготная на первый год и рыночная после. Первая ставка задана выше.
-            </p>
-          </div>
-          <div class="block__body">
-            <div class="rows" data-list="rates"></div>
-            <button type="button" class="add" data-add="rates">Добавить период</button>
-          </div>
-        </section>
-
-        <section class="block" aria-labelledby="grace-heading">
-          <div class="block__head">
-            <h2 class="block__title" id="grace-heading">Отсрочка по основному долгу</h2>
-            <p class="block__hint">Месяцы, когда платятся только проценты.</p>
-          </div>
-          <div class="block__body">
-            <div class="rows" data-list="grace"></div>
-            <button type="button" class="add" data-add="grace">Добавить отсрочку</button>
-            <label class="check">
-              <input type="checkbox" data-field="grace-extends" />
-              <span>Отсрочка продлевает срок кредита</span>
-            </label>
-          </div>
-        </section>
-
-        <section class="block" aria-labelledby="prepay-heading">
-          <div class="block__head">
-            <h2 class="block__title" id="prepay-heading">Досрочные погашения</h2>
-            <p class="block__hint">Разово или регулярно, с уменьшением срока или платежа.</p>
-          </div>
-          <div class="block__body">
-            <div class="rows" data-list="prepayments"></div>
-            <button type="button" class="add" data-add="prepayments">Добавить погашение</button>
-            <div class="target">
-              <label class="control">
-                <span class="control__label">Хочу закрыть кредит за</span>
-                <span class="control__field">
-                  <input
-                    class="control__input num"
-                    data-target-years
-                    inputmode="decimal"
-                    placeholder="10"
-                  />
-                  <span class="control__unit">лет</span>
-                </span>
-              </label>
-              <p class="target__result" data-target-result aria-live="polite"></p>
-            </div>
-          </div>
-        </section>
-      </div>
-    </details>
-
-    <ul class="errors" data-errors hidden aria-live="polite"></ul>
-    <noscript>
-      <p class="calc__noscript">
-        Без JavaScript форма не пересчитывает график. Ниже показан расчёт для условий по умолчанию.
-      </p>
-    </noscript>
-  </form>
+  <CalculatorForm />
 
   <p class="calc__empty" data-empty hidden>Исправьте значения в форме, чтобы увидеть график.</p>
 
   <div class="results" data-results>
-    <header class="results__head">
-      <p class="results__conditions" data-out="conditions">{conditions}</p>
-      <div class="results__figure-row">
-        <p class="figure">
-          <span class="figure__label" data-out="figure-label">{figure.label}</span>
-          <strong class="figure__value num" data-out="figure">{figure.value}</strong>
-          <span class="figure__note num" data-out="figure-note">{figure.note}</span>
-        </p>
-        <dl class="stats stats--inline" data-out="stats" set:html={statsHtml(keyStats(result))} />
-        <details class="menu no-print" data-menu>
-          <summary class="menu__button">Действия</summary>
-          <ul class="menu__list" role="list">
-            <li>
-              <button type="button" class="menu__item" data-action="copy-link"
-                >Скопировать ссылку на расчёт</button
-              >
-            </li>
-            <li>
-              <a class="menu__item" href="/mortgage/schedule/" data-action="schedule"
-                >Открыть график на отдельной странице</a
-              >
-            </li>
-            <li>
-              <a class="menu__item" href="/mortgage/compare/" data-action="compare"
-                >Сравнить с другим вариантом</a
-              >
-            </li>
-            <li><button type="button" class="menu__item" data-action="csv">Скачать CSV</button></li>
-            <li><button type="button" class="menu__item" data-action="print">Печать</button></li>
-          </ul>
-        </details>
-      </div>
-    </header>
+    <ResultsSummary initial={initial} result={result} />
 
     <section class="results__schedule" aria-labelledby="schedule-heading">
       <div class="results__row">
@@ -218,82 +45,19 @@ const conditions = describeState(initial, result);
         <span class="results__count" data-out="rows-count">{rowsCountText(result)}</span>
       </div>
       <ScheduleTable result={result} />
-      <p class="legend">
-        <span class="legend__item legend__item--principal"><i></i>основной долг</span>
-        <span class="legend__item legend__item--interest"><i></i>проценты</span>
-        <span class="legend__item legend__item--grace" data-out="legend-grace" hidden
-          ><i></i>отсрочка</span
-        >
-        <span class="legend__item legend__item--prepay" data-out="legend-prepay" hidden
-          ><i></i>досрочное погашение</span
-        >
-      </p>
+      <Legend
+        items={[
+          { tone: 'principal', label: 'основной долг' },
+          { tone: 'interest', label: 'проценты' },
+          { tone: 'grace', label: 'отсрочка', out: 'legend-grace', hidden: true },
+          { tone: 'prepay', label: 'досрочное погашение', out: 'legend-prepay', hidden: true },
+        ]}
+      />
     </section>
 
     <div class="results__effect" data-out="effect" hidden></div>
 
-    <section class="results__analysis" aria-labelledby="analysis-heading">
-      <h2 class="results__heading" id="analysis-heading">Как распределяются выплаты</h2>
-      <div class="share" data-out="share" aria-hidden="true">
-        <span class="share__principal" style={`width:${share.principal}%`}></span>
-        <span class="share__interest" style={`width:${100 - share.principal}%`}></span>
-      </div>
-      <p class="legend">
-        <span class="legend__item legend__item--principal"
-          ><i></i><span data-out="share-principal">{share.labelPrincipal}</span></span
-        >
-        <span class="legend__item legend__item--interest"
-          ><i></i><span data-out="share-interest">{share.labelInterest}</span></span
-        >
-      </p>
-
-      <div class="results__grid results__grid--charts no-print">
-        <div class="results__block">
-          <h3 class="results__subheading">Остаток долга</h3>
-          <div class="chart-box" data-chart="balance" set:html={balanceChart(result)} />
-          <p class="legend" data-out="balance-legend" hidden>
-            <span class="legend__item legend__item--line"><i></i>с досрочными погашениями</span>
-            <span class="legend__item legend__item--dashed"><i></i>без них</span>
-          </p>
-        </div>
-        <div class="results__block">
-          <h3 class="results__subheading">Выплаты по годам</h3>
-          <div class="chart-box" data-chart="years" set:html={yearsChart(yearSummaries(result))} />
-        </div>
-      </div>
-
-      <div class="results__block">
-        <h3 class="results__subheading">Итоги по годам</h3>
-        <div class="table-wrap">
-          <table class="table table--years">
-            <thead>
-              <tr>
-                <th scope="col">Год</th>
-                <th scope="col">Выплачено</th>
-                <th scope="col">Основной долг</th>
-                <th scope="col">Проценты</th>
-                <th scope="col">Остаток долга</th>
-              </tr>
-            </thead>
-            <tbody data-out="years-body" set:html={yearsRowsHtml(result)} />
-          </table>
-        </div>
-      </div>
-
-      <div class="results__grid no-print">
-        <div class="results__block">
-          <h3 class="results__subheading">Если ставка будет другой</h3>
-          <div
-            data-out="sens-rate"
-            set:html={sensitivityHtml(rateSensitivity(initial), 'Ставка')}
-          />
-        </div>
-        <div class="results__block">
-          <h3 class="results__subheading">Если срок будет другим</h3>
-          <div data-out="sens-term" set:html={sensitivityHtml(termSensitivity(initial), 'Срок')} />
-        </div>
-      </div>
-    </section>
+    <Analysis initial={initial} result={result} />
   </div>
 </section>
 
@@ -306,143 +70,6 @@ const conditions = describeState(initial, result);
   .calc {
     display: grid;
     gap: var(--space-6);
-  }
-
-  .calc__form {
-    display: grid;
-    gap: var(--space-4);
-    padding: var(--space-4);
-    border-radius: var(--radius-lg);
-    background: var(--color-paper);
-    box-shadow: var(--shadow-panel);
-  }
-
-  .calc__main {
-    display: grid;
-    gap: var(--space-4);
-  }
-
-  .calc__extra {
-    border-top: 1px solid var(--color-rule);
-    padding-top: var(--space-3);
-  }
-
-  .calc__extra-summary {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-1) var(--space-3);
-    min-height: 44px;
-    cursor: pointer;
-    list-style: none;
-    position: relative;
-    padding-right: var(--space-6);
-  }
-
-  .calc__extra-summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .calc__extra-summary::after {
-    content: '';
-    position: absolute;
-    right: var(--space-2);
-    top: 0.7rem;
-    width: 0.55rem;
-    height: 0.55rem;
-    border-right: 2px solid var(--color-text-muted);
-    border-bottom: 2px solid var(--color-text-muted);
-    transform: rotate(45deg);
-  }
-
-  .calc__extra[open] .calc__extra-summary::after {
-    transform: rotate(225deg);
-    top: 1rem;
-  }
-
-  .calc__extra-title {
-    font-weight: 600;
-  }
-
-  .calc__extra-hint {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
-
-  .calc__extra-body {
-    display: grid;
-    padding-top: var(--space-2);
-  }
-
-  /* Блоки условий идут полосами через линейку: заголовок и подсказка слева, строки справа */
-  .block {
-    display: grid;
-    gap: var(--space-3) var(--space-6);
-    align-content: start;
-    padding-block: var(--space-5);
-    border-top: 1px solid var(--color-rule);
-  }
-
-  .block:first-child {
-    border-top: 0;
-  }
-
-  .block:last-child {
-    padding-bottom: var(--space-2);
-  }
-
-  .block__head {
-    display: grid;
-    gap: var(--space-1);
-    align-content: start;
-  }
-
-  .block__body {
-    display: grid;
-    gap: var(--space-3);
-    align-content: start;
-    min-width: 0;
-  }
-
-  .block__title {
-    font-size: var(--text-base);
-    font-weight: 600;
-  }
-
-  .block__hint {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    max-width: 30rem;
-  }
-
-  .target {
-    display: grid;
-    gap: var(--space-2);
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--color-rule);
-  }
-
-  .target .control {
-    max-width: 16rem;
-  }
-
-  .target__result {
-    font-size: var(--text-sm);
-    min-height: 1.5em;
-  }
-
-  .errors {
-    margin: 0;
-    padding: var(--space-3) var(--space-4) var(--space-3) var(--space-6);
-    border-radius: var(--radius-md);
-    background: var(--color-danger-soft);
-    color: var(--color-danger);
-    font-size: var(--text-sm);
-  }
-
-  .calc__noscript {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
   }
 
   .calc__empty {
@@ -459,66 +86,10 @@ const conditions = describeState(initial, result);
     min-width: 0;
   }
 
-  .results__head {
-    display: grid;
-    gap: var(--space-3);
-  }
-
-  .results__conditions {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
-
-  .results__figure-row {
-    display: grid;
-    gap: var(--space-5);
-    align-items: start;
-  }
-
-  .figure {
-    display: grid;
-    gap: var(--space-1);
-  }
-
-  .figure__label {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
-
-  .figure__value {
-    font-size: var(--text-figure);
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: -0.03em;
-  }
-
-  .figure__note {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    min-height: 1.5em;
-  }
-
-  .results__schedule,
-  .results__analysis,
-  .results__block {
+  .results__schedule {
     display: grid;
     gap: var(--space-3);
     min-width: 0;
-  }
-
-  .results__analysis {
-    gap: var(--space-5);
-    padding-top: var(--space-6);
-    border-top: 1px solid var(--color-rule);
-  }
-
-  .results__heading {
-    font-size: var(--text-xl);
-  }
-
-  .results__subheading {
-    font-size: var(--text-base);
-    font-weight: 600;
   }
 
   .results__row {
@@ -532,59 +103,6 @@ const conditions = describeState(initial, result);
   .results__count {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
-  }
-
-  .results__effect {
-    display: grid;
-    gap: var(--space-4);
-    padding: var(--space-5);
-    border-radius: var(--radius-md);
-    background: var(--color-prepay-soft);
-  }
-
-  .results__grid {
-    display: grid;
-    gap: var(--space-5);
-  }
-
-  @media (min-width: 768px) {
-    .calc__form {
-      padding: var(--space-5) var(--space-6);
-    }
-
-    .calc__main {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      align-items: start;
-    }
-
-    .results__grid {
-      grid-template-columns: 1fr 1fr;
-    }
-
-    .results__figure-row {
-      grid-template-columns: auto 1fr auto;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .calc__main {
-      grid-template-columns: 1.3fr 1fr 1.2fr 1.6fr;
-    }
-
-    .block {
-      grid-template-columns: minmax(0, 17rem) minmax(0, 1fr);
-    }
-  }
-
-  @media (max-width: 767px) {
-    .calc__main {
-      grid-template-columns: 1fr 1fr;
-    }
-
-    .calc__main > :first-child,
-    .calc__main > :last-child {
-      grid-column: 1 / -1;
-    }
   }
 
   @media print {

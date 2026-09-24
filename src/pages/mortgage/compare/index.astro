@@ -4,6 +4,7 @@ import Button from '@/components/atoms/button.astro';
 import Container from '@/components/atoms/container.astro';
 import Disclaimer from '@/components/organisms/disclaimer.astro';
 import PageIntro from '@/components/organisms/page-intro.astro';
+import Legend from '@/components/molecules/legend.astro';
 import Prose from '@/components/organisms/prose.astro';
 import { siteConfig } from '@/config/site';
 import { breadcrumbsJsonLd, webApplicationJsonLd } from '@/lib/seo';
@@ -50,7 +51,7 @@ const jsonLd = [
         <section class="compare__chart" aria-labelledby="compare-chart-heading">
           <h2 class="compare__subheading" id="compare-chart-heading">Остаток долга по сценариям</h2>
           <div class="chart-box" data-compare-chart></div>
-          <p class="legend" data-legend></p>
+          <Legend data-legend="" />
         </section>
       </div>
     </section>
@@ -82,9 +83,11 @@ const jsonLd = [
     gap: var(--space-5);
   }
 
+  /* Высота под сценарии и таблицу до отрисовки скриптом: страница не прыгает */
   .compare__scenarios {
     display: grid;
     gap: var(--space-4);
+    min-height: 24rem;
   }
 
   .scenario {
@@ -125,6 +128,7 @@ const jsonLd = [
   }
 
   .compare__table-wrap {
+    min-height: 22rem;
     overflow: auto;
     border-radius: var(--radius-md);
     background: var(--color-paper);
@@ -135,6 +139,7 @@ const jsonLd = [
     width: 100%;
     border-collapse: collapse;
     font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
   }
 
   .compare__table th,

@@ -1,0 +1,75 @@
+/*
+ * Сводка ключевых цифр: подпись, значение, примечание. Разметку даёт
+ * lib/schedule-render.ts (statsHtml) через molecules/stat-list.astro и скрипт.
+ * --inline — строка цифр рядом с главной цифрой результата.
+ */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--space-4) var(--space-5);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat {
+  display: grid;
+  gap: 2px;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--color-rule);
+}
+
+.stat--principal {
+  border-left-color: var(--color-principal);
+}
+
+.stat--interest {
+  border-left-color: var(--color-interest);
+}
+
+.stat--prepay {
+  border-left-color: var(--color-prepay);
+}
+
+.stat__label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.stat__value {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: var(--leading-snug);
+}
+
+.stat__note {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* Ключевые цифры в строку рядом с главной: без линеек, подписи и значения на одних линиях */
+.stats--inline {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+}
+
+.stats--inline .stat {
+  padding-left: 0;
+  border-left: 0;
+}
+
+/* От 768px — поток по содержимому: ячейка расширяется под длинное значение
+   («19 лет 11 месяцев»), а не наезжает на соседа; слишком длинное переносится */
+@media (min-width: 768px) {
+  .stats--inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3) var(--space-6);
+  }
+
+  .stats--inline .stat {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 16rem;
+  }
+}

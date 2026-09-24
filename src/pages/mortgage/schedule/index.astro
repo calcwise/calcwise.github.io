@@ -2,6 +2,10 @@
 import BaseLayout from '@/components/templates/base-layout.astro';
 import Button from '@/components/atoms/button.astro';
 import Container from '@/components/atoms/container.astro';
+import Figure from '@/components/molecules/figure.astro';
+import Legend from '@/components/molecules/legend.astro';
+import StatList from '@/components/molecules/stat-list.astro';
+import YearsTable from '@/components/molecules/years-table.astro';
 import ScheduleTable from '@/components/organisms/schedule-table.astro';
 import { siteConfig } from '@/config/site';
 import { breadcrumbsJsonLd } from '@/lib/seo';
@@ -29,43 +33,36 @@ const description =
       <p class="schedule-page__error" data-error hidden></p>
       <div class="schedule-page__content" data-content hidden>
         <header class="schedule-page__head">
-          <div>
+          <div class="schedule-page__titles">
             <h1 class="schedule-page__title">График платежей</h1>
-            <p class="schedule-page__conditions" data-out="conditions"></p>
+            <p class="schedule-page__conditions num" data-out="conditions"></p>
           </div>
           <div class="schedule-page__actions no-print">
-            <Button variant="outline" data-action="back" href="/mortgage/">Изменить условия</Button>
             <Button variant="ghost" data-action="csv">Скачать CSV</Button>
             <Button variant="ghost" data-action="print">Печать</Button>
           </div>
         </header>
 
         <div class="schedule-page__summary">
-          <p class="figure">
-            <span class="figure__label" data-out="figure-label">Ежемесячный платёж</span>
-            <strong class="figure__value num" data-out="figure"></strong>
-          </p>
-          <dl class="stats stats--inline" data-out="stats"></dl>
+          <Figure label="Ежемесячный платёж" />
+          <StatList inline out="stats" />
         </div>
 
-        <ScheduleTable scroll={false} />
+        <div class="schedule-page__table">
+          <ScheduleTable scroll={false} />
+          <Legend
+            items={[
+              { tone: 'principal', label: 'основной долг' },
+              { tone: 'interest', label: 'проценты' },
+              { tone: 'grace', label: 'отсрочка', out: 'legend-grace', hidden: true },
+              { tone: 'prepay', label: 'досрочное погашение', out: 'legend-prepay', hidden: true },
+            ]}
+          />
+        </div>
 
         <section class="schedule-page__years" aria-labelledby="years-heading">
           <h2 class="schedule-page__subheading" id="years-heading">Итоги по годам</h2>
-          <div class="table-wrap">
-            <table class="table table--years">
-              <thead>
-                <tr>
-                  <th scope="col">Год</th>
-                  <th scope="col">Выплачено</th>
-                  <th scope="col">Основной долг</th>
-                  <th scope="col">Проценты</th>
-                  <th scope="col">Остаток долга</th>
-                </tr>
-              </thead>
-              <tbody data-out="years-body"></tbody>
-            </table>
-          </div>
+          <YearsTable />
         </section>
       </div>
     </section>
@@ -80,7 +77,7 @@ const description =
 <style>
   .schedule-page__content {
     display: grid;
-    gap: var(--space-6);
+    gap: var(--space-7);
   }
 
   .schedule-page__head {
@@ -88,19 +85,23 @@ const description =
     gap: var(--space-4);
   }
 
+  .schedule-page__titles {
+    display: grid;
+    gap: var(--space-2);
+  }
+
   .schedule-page__title {
     font-size: var(--text-2xl);
   }
 
   .schedule-page__conditions {
-    margin-top: var(--space-2);
     color: var(--color-text-muted);
     font-size: var(--text-sm);
   }
 
+  /* Кнопки: на телефоне столбиком во всю ширину, от 480px — в ряд */
   .schedule-page__actions {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
     gap: var(--space-2);
   }
 
@@ -110,6 +111,12 @@ const description =
     align-items: start;
   }
 
+  .schedule-page__table,
+  .schedule-page__years {
+    display: grid;
+    gap: var(--space-3);
+  }
+
   .schedule-page__error {
     padding: var(--space-5);
     border-radius: var(--radius-md);
@@ -117,40 +124,28 @@ const description =
     color: var(--color-danger);
   }
 
-  .schedule-page__years {
-    display: grid;
-    gap: var(--space-3);
-  }
-
   .schedule-page__subheading {
-    font-size: var(--text-lg);
+    font-size: var(--text-xl);
   }
 
-  .figure {
-    display: grid;
-    gap: var(--space-1);
-  }
-
-  .figure__label {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
-
-  .figure__value {
-    font-size: var(--text-figure);
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: -0.03em;
+  @media (min-width: 480px) {
+    .schedule-page__actions {
+      grid-auto-flow: column;
+      justify-content: start;
+    }
   }
 
   @media (min-width: 768px) {
-    .schedule-page__head {
-      grid-template-columns: 1fr auto;
-      align-items: start;
-    }
-
     .schedule-page__summary {
-      grid-template-columns: auto 1fr;
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+  }
+
+  /* Кнопки справа от заголовка только там, где заголовок не переносится из-за них */
+  @media (min-width: 1024px) {
+    .schedule-page__head {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
     }
   }
 </style>

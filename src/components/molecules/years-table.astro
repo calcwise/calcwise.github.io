@@ -1,0 +1,25 @@
+---
+/* Итоги по годам: лист с таблицей. Стартовые строки — при сборке, пересчёт — скриптом */
+import type { ScheduleResult } from '@/lib/mortgage';
+import { yearsRowsHtml } from '@/lib/schedule-render';
+
+interface Props {
+  result?: ScheduleResult;
+}
+const { result } = Astro.props;
+---
+
+<div class="table-wrap">
+  <table class="table table--years">
+    <thead>
+      <tr>
+        <th scope="col">Год</th>
+        <th scope="col">Выплачено</th>
+        <th scope="col">Основной долг</th>
+        <th scope="col">Проценты</th>
+        <th scope="col">Остаток долга</th>
+      </tr>
+    </thead>
+    <tbody data-out="years-body" set:html={result ? yearsRowsHtml(result) : ''} />
+  </table>
+</div>

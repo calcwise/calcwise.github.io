@@ -1,0 +1,95 @@
+---
+/*
+ * Шапка результатов: условия одной фразой, главная цифра, ключевые цифры и меню действий.
+ * До 768px всё в столбик; от 768px меню справа от цифры, ключевые цифры строкой ниже;
+ * от 1280px — всё в одну линию. Ключевые цифры никогда не наезжают на меню.
+ */
+import Figure from '@/components/molecules/figure.astro';
+import StatList from '@/components/molecules/stat-list.astro';
+import ActionsMenu from '@/components/organisms/actions-menu.astro';
+import type { ScheduleResult } from '@/lib/mortgage';
+import { describeState, figureText, keyStats } from '@/lib/schedule-render';
+import type { CalculatorState } from '@/lib/url-state';
+
+interface Props {
+  initial: CalculatorState;
+  result: ScheduleResult;
+}
+const { initial, result } = Astro.props;
+const figure = figureText(result);
+
+const actions = [
+  { action: 'copy-link', label: 'Скопировать ссылку на расчёт' },
+  {
+    action: 'schedule',
+    label: 'Открыть график на отдельной странице',
+    href: '/mortgage/schedule/',
+  },
+  { action: 'compare', label: 'Сравнить с другим вариантом', href: '/mortgage/compare/' },
+  { action: 'csv', label: 'Скачать CSV' },
+  { action: 'print', label: 'Печать' },
+];
+---
+
+<header class="summary">
+  <p class="summary__conditions num" data-out="conditions">{describeState(initial, result)}</p>
+  <div class="summary__row">
+    <Figure label={figure.label} value={figure.value} note={figure.note} class="summary__figure" />
+    <StatList stats={keyStats(result)} inline out="stats" class="summary__stats" />
+    <ActionsMenu items={actions} class="summary__menu" />
+  </div>
+</header>
+
+<style>
+  .summary {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .summary__conditions {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .summary__row {
+    display: grid;
+    grid-template-areas:
+      'figure'
+      'stats'
+      'menu';
+    gap: var(--space-5);
+    align-items: start;
+  }
+
+  .summary__row > :global(.summary__figure) {
+    grid-area: figure;
+  }
+
+  .summary__row > :global(.summary__stats) {
+    grid-area: stats;
+  }
+
+  .summary__row > :global(.summary__menu) {
+    grid-area: menu;
+  }
+
+  @media (min-width: 768px) {
+    .summary__row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        'figure menu'
+        'stats stats';
+    }
+
+    .summary__row > :global(.summary__menu) {
+      justify-self: end;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .summary__row {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-areas: 'figure stats menu';
+    }
+  }
+</style>

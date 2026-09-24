@@ -2,7 +2,6 @@
 import Container from '@/components/atoms/container.astro';
 import Logo from '@/components/atoms/logo.astro';
 import { siteConfig } from '@/config/site';
-import { mortgagePages } from '@/lib/mortgage-pages';
 
 const year = new Date().getFullYear();
 const since = siteConfig.since === year ? String(year) : `${siteConfig.since}–${year}`;
@@ -18,29 +17,29 @@ const since = siteConfig.since === year ? String(year) : `${siteConfig.since}–
         комиссии и страховки — могут отличаться, итоговые цифры уточняйте в договоре.
       </p>
     </div>
-    <nav class="footer__nav" aria-label="Калькуляторы ипотеки">
-      <h2 class="footer__heading">Ипотека</h2>
-      <ul class="footer__list">
-        <li><a href="/mortgage/">Калькулятор ипотеки</a></li>
-        {
-          mortgagePages.map((page) => (
-            <li>
-              <a href={`/mortgage/${page.slug}/`}>{page.title}</a>
-            </li>
-          ))
-        }
-        <li><a href="/mortgage/compare/">Сравнение сценариев</a></li>
-        <li><a href="/mortgage/schedule/">График платежей</a></li>
-      </ul>
-    </nav>
-    <nav class="footer__nav" aria-label="Разделы сайта">
-      <h2 class="footer__heading">Сервис</h2>
-      <ul class="footer__list">
-        <li><a href="/cooperative/">Кооператив</a></li>
-        <li><a href="/guide/">Как мы считаем</a></li>
-        <li><a href="/faq/">Вопросы и ответы</a></li>
-      </ul>
-    </nav>
+    <div class="footer__navs">
+      <nav class="footer__nav" aria-label="Ипотека">
+        <h2 class="footer__heading">Ипотека</h2>
+        <ul class="footer__list">
+          <li><a href="/mortgage/">Калькулятор ипотеки</a></li>
+          <li><a href="/mortgage/annuity/">Аннуитетные платежи</a></li>
+          <li><a href="/mortgage/differentiated/">Дифференцированные платежи</a></li>
+        </ul>
+      </nav>
+      <nav class="footer__nav" aria-label="Кооператив">
+        <h2 class="footer__heading">Кооператив</h2>
+        <ul class="footer__list">
+          <li><a href="/cooperative/">Калькулятор кооператива</a></li>
+        </ul>
+      </nav>
+      <nav class="footer__nav" aria-label="Справка">
+        <h2 class="footer__heading">Справка</h2>
+        <ul class="footer__list">
+          <li><a href="/guide/">Как мы считаем</a></li>
+          <li><a href="/guide/faq/">Вопросы и ответы</a></li>
+        </ul>
+      </nav>
+    </div>
   </Container>
   <Container class="footer__bottom">
     <p>© {since} {siteConfig.name}. Бесплатный сервис без рекламы банков.</p>
@@ -49,16 +48,21 @@ const since = siteConfig.since === year ? String(year) : `${siteConfig.since}–
 
 <style>
   .footer {
-    margin-top: var(--space-9);
     background: var(--color-paper);
     font-size: var(--text-sm);
     color: var(--color-text-muted);
   }
 
+  /* Бренд слева одной колонкой, три раздела навигации справа в ряд */
   .footer :global(.footer__inner) {
     display: grid;
     gap: var(--space-6);
     padding-block: var(--space-7) var(--space-5);
+  }
+
+  .footer__navs {
+    display: grid;
+    gap: var(--space-6);
   }
 
   .footer__tagline {
@@ -84,11 +88,15 @@ const since = siteConfig.since === year ? String(year) : `${siteConfig.since}–
     list-style: none;
     padding: 0;
     display: grid;
-    gap: var(--space-2);
   }
 
+  /* Ссылка — цель нажатия высотой --tap-min при обычном межстрочном интервале */
   .footer__list a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
     text-decoration: none;
+    transition: var(--transition-ui);
   }
 
   .footer__list a:hover {
@@ -103,8 +111,26 @@ const since = siteConfig.since === year ? String(year) : `${siteConfig.since}–
   }
 
   @media (min-width: 768px) {
+    .footer__navs {
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(0, 1fr);
+      gap: var(--space-6);
+    }
+  }
+
+  /* От 1024px разделы справа по ширине содержимого, ссылки в одну строку; бренду — остальное */
+  @media (min-width: 1024px) {
     .footer :global(.footer__inner) {
-      grid-template-columns: 1.4fr 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: var(--space-7);
+    }
+
+    .footer__navs {
+      grid-auto-columns: max-content;
+    }
+
+    .footer__list a {
+      white-space: nowrap;
     }
   }
 </style>

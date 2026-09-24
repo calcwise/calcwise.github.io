@@ -1,0 +1,318 @@
+---
+/*
+ * Форма калькулятора: четыре главных поля и раскрывающиеся дополнительные условия
+ * (ставка по периодам, отсрочка, досрочные погашения, обратный расчёт срока).
+ * Значения подставляет и строки условий рисует lib/calculator-ui.ts.
+ */
+import Field from '@/components/molecules/field.astro';
+import Segmented from '@/components/molecules/segmented.astro';
+
+const termUnits = [
+  { value: 'years', label: 'лет' },
+  { value: 'months', label: 'мес.' },
+];
+---
+
+<form class="form no-print" data-form novalidate autocomplete="off" aria-label="Параметры кредита">
+  <div class="form__main">
+    <Field label="Сумма кредита" field="amount" size="lg" />
+    <Field label="Ставка" field="rate" size="lg" unit="% годовых" />
+    <Field label="Срок" field="term" size="lg" id="term-label">
+      <Segmented name="term-unit" label="Единица срока" options={termUnits} value="years" inline />
+    </Field>
+    {/* Не fieldset: legend не участвует в сетке control и сбивает линию с полями */}
+    <div class="control" role="group" aria-labelledby="type-label">
+      <span class="control__label" id="type-label">Тип платежей</span>
+      <Segmented
+        name="type"
+        label="Тип платежей"
+        value="annuity"
+        options={[
+          { value: 'annuity', label: 'Аннуитетный' },
+          { value: 'diff', label: 'Дифференцированный' },
+        ]}
+      />
+    </div>
+  </div>
+
+  <details class="extra" data-extra>
+    <summary class="extra__summary">
+      <span class="extra__title">Дополнительные условия</span>
+      <span class="extra__hint" data-out="extra-hint"
+        >ставка по периодам, отсрочка, досрочные погашения</span
+      >
+    </summary>
+    <div class="extra__body">
+      <section class="block" aria-labelledby="rates-heading">
+        <div class="block__head">
+          <h2 class="block__title" id="rates-heading">Ставка по периодам</h2>
+          <p class="block__hint">
+            Например, льготная на первый год и рыночная после. Первая ставка задана выше.
+          </p>
+        </div>
+        <div class="block__body">
+          <div class="rows" data-list="rates"></div>
+          <button type="button" class="add" data-add="rates">Добавить период</button>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="grace-heading">
+        <div class="block__head">
+          <h2 class="block__title" id="grace-heading">Отсрочка по основному долгу</h2>
+          <p class="block__hint">Месяцы, когда платятся только проценты.</p>
+        </div>
+        <div class="block__body">
+          <div class="rows" data-list="grace"></div>
+          <button type="button" class="add" data-add="grace">Добавить отсрочку</button>
+          <label class="check">
+            <input type="checkbox" data-field="grace-extends" />
+            <span>Отсрочка продлевает срок кредита</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="prepay-heading">
+        <div class="block__head">
+          <h2 class="block__title" id="prepay-heading">Досрочные погашения</h2>
+          <p class="block__hint">Разово или регулярно, с уменьшением срока или платежа.</p>
+        </div>
+        <div class="block__body">
+          <div class="rows" data-list="prepayments"></div>
+          <button type="button" class="add" data-add="prepayments">Добавить погашение</button>
+          <div class="target">
+            <Field
+              label="Хочу закрыть кредит за"
+              id="target-label"
+              placeholder="10"
+              data-target-years=""
+              class="target__field"
+            >
+              <Segmented
+                name="target-unit"
+                label="Единица срока цели"
+                options={termUnits}
+                value="years"
+                inline
+              />
+            </Field>
+            <p class="target__result num" data-target-result aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </details>
+
+  <ul class="errors" data-errors hidden aria-live="polite"></ul>
+  <noscript>
+    <p class="form__noscript">
+      Без JavaScript форма не пересчитывает график. Ниже показан расчёт для условий по умолчанию.
+    </p>
+  </noscript>
+</form>
+
+<style>
+  /* Панель формы: лист на бумаге */
+  .form {
+    display: grid;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+    background: var(--color-paper);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .form__main {
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  .extra {
+    border-top: 1px solid var(--color-rule);
+    padding-top: var(--space-3);
+  }
+
+  .extra__summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+    min-height: var(--tap-min);
+    position: relative;
+    padding-right: var(--space-6);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .extra__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Шеврон поворачивается на месте: строка не прыгает при раскрытии */
+  .extra__summary::after {
+    content: '';
+    position: absolute;
+    right: var(--space-2);
+    top: 0.85rem;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-right: 2px solid var(--color-text-muted);
+    border-bottom: 2px solid var(--color-text-muted);
+    transform: translateY(-2px) rotate(45deg);
+    transition: transform var(--duration-base);
+  }
+
+  .extra[open] .extra__summary::after {
+    transform: translateY(2px) rotate(225deg);
+  }
+
+  .extra__title {
+    font-weight: 600;
+  }
+
+  .extra__hint {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .extra__body {
+    display: grid;
+    padding-top: var(--space-2);
+  }
+
+  /* Блоки условий идут полосами через линейку: заголовок и подсказка слева, строки справа */
+  .block {
+    display: grid;
+    gap: var(--space-3) var(--space-6);
+    align-content: start;
+    padding-block: var(--space-5);
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .block:first-child {
+    border-top: 0;
+  }
+
+  .block:last-child {
+    padding-bottom: var(--space-2);
+  }
+
+  .block__head {
+    display: grid;
+    gap: var(--space-1);
+    align-content: start;
+  }
+
+  .block__body {
+    display: grid;
+    gap: var(--space-3);
+    align-content: start;
+    min-width: 0;
+  }
+
+  .block__title {
+    font-size: var(--text-base);
+    font-weight: 600;
+  }
+
+  .block__hint {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    max-width: 30rem;
+  }
+
+  .target {
+    display: grid;
+    gap: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .target > :global(.target__field) {
+    max-width: 16rem;
+  }
+
+  .target__result {
+    font-size: var(--text-sm);
+  }
+
+  .target__result :global(.target__apply) {
+    display: inline-block;
+    margin-top: var(--space-2);
+    min-height: var(--tap-min);
+    padding: 0 var(--space-3);
+    border: 0;
+    border-radius: var(--radius-md);
+    background: var(--color-ink-solid);
+    color: var(--color-on-ink);
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-ui);
+  }
+
+  .target__result :global(.target__apply):hover {
+    background: var(--color-ink-solid-hover);
+  }
+
+  .target__result:empty {
+    display: none;
+  }
+
+  .errors {
+    margin: 0;
+    padding: var(--space-3) var(--space-4) var(--space-3) var(--space-6);
+    border-radius: var(--radius-md);
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+    font-size: var(--text-sm);
+  }
+
+  .form__noscript {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  @media (min-width: 480px) and (max-width: 767px) {
+    .form__main {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .form__main > :global(:first-child),
+    .form__main > :global(:last-child) {
+      grid-column: 1 / -1;
+    }
+  }
+
+  /* 768–1023: сумма, ставка и срок в ряд, переключатель типа под ними во всю ширину,
+     чтобы «Дифференцированный» не переносился на вторую строку */
+  @media (min-width: 768px) {
+    .form {
+      padding: var(--space-5) var(--space-6);
+    }
+
+    .form__main {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      align-items: start;
+    }
+
+    .form__main > :global(:last-child) {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .form__main {
+      grid-template-columns: 1.1fr 0.9fr 1fr 1.8fr;
+    }
+
+    .form__main > :global(:last-child) {
+      grid-column: auto;
+    }
+
+    .block {
+      grid-template-columns: minmax(0, 17rem) minmax(0, 1fr);
+    }
+  }
+</style>

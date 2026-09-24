@@ -5,7 +5,7 @@
  * при пересчёте). В строки попадают только числа и заранее известные подписи.
  */
 import { fmtInt, fmtMoney, fmtMonths, fmtMonthsAsYears, fmtRate, plural } from './format.ts';
-import { yearSummaries } from './mortgage/index.ts';
+import { prepaymentEffect, yearSummaries } from './mortgage/index.ts';
 import type { ScheduleResult, SensitivityCell } from './mortgage/index.ts';
 import type { CalculatorState } from './url-state.ts';
 
@@ -130,10 +130,34 @@ export function statsHtml(stats: Array<Stat | null>): string {
     .join('');
 }
 
+/**
+ * Строка после последнего платежа, если кредит закрыт раньше плана:
+ * пользователю важно увидеть, что дальше платить не нужно и что это дало.
+ */
+export function closingRowHtml(r: ScheduleResult): string {
+  const s = r.summary;
+  if (s.actualMonths >= s.plannedMonths) return '';
+  const effect = prepaymentEffect(r);
+  const parts = [
+    `Кредит закрыт в ${s.actualMonths}-м месяце, дальше платить не нужно`,
+    `на ${fmtMonthsAsYears(s.plannedMonths - s.actualMonths)} раньше плана`,
+  ];
+  if (effect) {
+    parts.push(`досрочно внесено ${fmtMoney(s.totalPrepaid)}`);
+    parts.push(`сэкономлено на процентах ${fmtMoney(effect.interestSaved)}`);
+  }
+  return (
+    `<tr class="schedule__row schedule__row--closed"><td colspan="10">` +
+    `<strong>${escape(parts[0]!)}</strong>: ${escape(parts.slice(1).join(', '))}.` +
+    `</td></tr>`
+  );
+}
+
 export function scheduleRowsHtml(r: ScheduleResult): string {
   const hasPrepay = r.summary.totalPrepaid > 0;
   const hasRates = r.input.rates.length > 1;
   const hidden = (show: boolean) => (show ? '' : ' hidden');
+  const closing = closingRowHtml(r);
   return r.rows
     .map((row) => {
       const classes = ['schedule__row'];
@@ -154,7 +178,8 @@ export function scheduleRowsHtml(r: ScheduleResult): string {
         `</tr>`
       );
     })
-    .join('');
+    .join('')
+    .concat(closing);
 }
 
 export function yearsRowsHtml(r: ScheduleResult): string {
