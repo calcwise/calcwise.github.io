@@ -198,6 +198,7 @@ function extraRowHtml(r: ScheduleResult, extra: number, hidden: (show: boolean) 
   );
 }
 
+/** Строки графика. «Платёж» — всё, что уходит в этом месяце: плановый платёж вместе с досрочкой */
 export function scheduleRowsHtml(r: ScheduleResult, extra = 0): string {
   const hasPrepay = r.summary.totalPrepaid > 0;
   const hasRates = r.input.rates.length > 1;
@@ -213,7 +214,7 @@ export function scheduleRowsHtml(r: ScheduleResult, extra = 0): string {
         `<tr class="${classes.join(' ')}">` +
         `<th scope="row" class="num">${row.month}${row.isGrace ? '<span class="schedule__tag">отсрочка</span>' : ''}</th>` +
         `<td class="num" data-col="rate"${hidden(hasRates)}>${fmtRate(row.ratePercent)}</td>` +
-        `<td class="num">${fmtMoney(row.payment)}</td>` +
+        `<td class="num">${fmtMoney(row.total)}</td>` +
         `<td class="num cell--principal">${fmtMoney(row.principal)}</td>` +
         `<td class="num cell--interest">${fmtMoney(row.interest)}</td>` +
         `<td class="num cell--prepay" data-col="prepayment"${hidden(hasPrepay)}>${row.prepayment ? fmtMoney(row.prepayment) : ''}</td>` +
