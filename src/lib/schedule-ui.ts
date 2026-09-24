@@ -3,15 +3,9 @@
  * ключевые цифры и полную таблицу без прокрутки внутри.
  */
 import { downloadText, scheduleToCsv } from './csv.ts';
-import { clear, el, q } from './dom.ts';
-import { fmtMoney } from './format.ts';
+import { q } from './dom.ts';
 import { buildSchedule } from './mortgage/index.ts';
-import {
-  describeState,
-  keyStats,
-  renderScheduleTable,
-  renderYearsTable,
-} from './schedule-render.ts';
+import { renderKeyFigures, renderScheduleTable, renderYearsTable } from './schedule-render.ts';
 import { DEFAULT_STATE, decodeState, encodeState } from './url-state.ts';
 
 export function initSchedulePage(root: HTMLElement): void {
@@ -20,22 +14,7 @@ export function initSchedulePage(root: HTMLElement): void {
   const content = q(root, '[data-content]');
   try {
     const result = buildSchedule(state);
-    q(root, '[data-out="conditions"]').textContent = describeState(state, result);
-    const firstRegular = result.rows.find((r) => !r.isGrace) ?? result.rows[0]!;
-    q(root, '[data-out="figure"]').textContent = fmtMoney(firstRegular.payment);
-    q(root, '[data-out="figure-label"]').textContent =
-      state.type === 'annuity' ? 'Ежемесячный платёж' : 'Первый платёж';
-    const stats = q(root, '[data-out="stats"]');
-    clear(stats);
-    for (const item of keyStats(result)) {
-      stats.append(
-        el('div', { class: `stat${item.tone ? ` stat--${item.tone}` : ''}` }, [
-          el('dt', { class: 'stat__label', text: item.label }),
-          el('dd', { class: 'stat__value num', text: item.value }),
-          item.note ? el('dd', { class: 'stat__note', text: item.note }) : null,
-        ]),
-      );
-    }
+    renderKeyFigures(root, state, result);
     renderScheduleTable(root, result);
     renderYearsTable(root, result);
     const back = q<HTMLAnchorElement>(root, '[data-action="back"]');

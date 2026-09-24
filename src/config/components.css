@@ -64,6 +64,11 @@
   font-size: var(--text-base);
 }
 
+.control__input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
 .control__input--lg {
   font-size: var(--text-lg);
   font-weight: 600;
@@ -99,14 +104,17 @@ select.control__input {
   min-height: var(--control-height);
 }
 
+/* Внутри поля ввода: дорожка прозрачная, поле само служит дорожкой */
 .segmented--inline {
   min-height: calc(var(--control-height) - 0.75rem);
   flex: none;
-  background: var(--color-paper);
+  padding: 0;
+  background: transparent;
 }
 
+/* Опции делят ширину по содержимому: длинная подпись не режется */
 .segmented__option {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   display: flex;
   position: relative;
   min-width: 0;
@@ -132,8 +140,9 @@ select.control__input {
   white-space: nowrap;
   user-select: none;
   transition:
-    background-color var(--duration-fast),
-    color var(--duration-fast);
+    background-color var(--duration-base),
+    box-shadow var(--duration-base),
+    color var(--duration-base);
 }
 
 .segmented__option span:hover {
@@ -141,10 +150,16 @@ select.control__input {
 }
 
 .segmented__option input:checked + span {
-  background: var(--color-paper);
+  background: var(--color-thumb);
   color: var(--color-text);
   font-weight: 600;
-  box-shadow: 0 1px 2px rgb(22 26 36 / 12%);
+  box-shadow: var(--shadow-thumb);
+}
+
+@media (max-width: 767px) {
+  .segmented__option span {
+    padding: 0 var(--space-2);
+  }
 }
 
 .segmented__option input:focus-visible + span {
@@ -179,10 +194,10 @@ select.control__input {
   gap: var(--space-3);
 }
 
+/* Строка условия: поля в сетке, последняя колонка — кнопка удаления на уровне полей */
 .row {
-  position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: var(--space-3);
   align-items: start;
   padding-bottom: var(--space-3);
@@ -194,21 +209,56 @@ select.control__input {
   border-bottom: 0;
 }
 
-/* Кнопка удаления в правом верхнем углу строки, на уровне подписей полей */
-.row > .row__remove {
+.row__remove {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 2.75rem;
+  min-height: 2.75rem;
   border: 0;
   border-radius: var(--radius-full);
   background: transparent;
   color: var(--color-text-muted);
+  font-size: var(--text-xl);
+  line-height: 1;
   cursor: pointer;
+  transition:
+    background-color var(--duration-fast),
+    color var(--duration-fast);
+}
+
+.row > .row__remove {
+  grid-column: -2 / -1;
+  grid-row: 1;
+  align-self: end;
+  height: var(--control-height);
 }
 
 .row__remove:hover {
   color: var(--color-danger);
   background: var(--color-danger-soft);
+}
+
+/* На телефоне переключателям в строке досрочки нужна вся ширина */
+@media (max-width: 767px) {
+  .row .control:has(> .segmented) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 768px) {
+  .row--rate,
+  .row--grace {
+    grid-template-columns: minmax(0, 12rem) minmax(0, 12rem) auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .row--prepay {
+    grid-template-columns:
+      minmax(8rem, 1.3fr) minmax(6rem, 1fr) auto auto minmax(6rem, 1fr)
+      auto;
+  }
 }
 
 .row__spacer {
@@ -345,6 +395,25 @@ select.control__input {
 .mini-table__current {
   background: var(--color-ink-soft);
   font-weight: 600;
+}
+
+/* Доли долга и процентов во всех выплатах */
+.share {
+  display: flex;
+  height: 0.75rem;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--color-paper-2);
+}
+
+.share__principal {
+  background: var(--color-principal);
+  transition: width var(--duration-base);
+}
+
+.share__interest {
+  background: var(--color-interest);
+  transition: width var(--duration-base);
 }
 
 /* Сводка */
@@ -514,11 +583,11 @@ select.control__input {
   fill: var(--color-interest);
 }
 
-/* Ключевые цифры в строку рядом с главной */
+/* Ключевые цифры в строку рядом с главной: подписи и значения на одних линиях */
 .stats--inline {
-  grid-template-columns: repeat(auto-fit, minmax(9rem, max-content));
-  gap: var(--space-3) var(--space-6);
-  align-content: end;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-5);
+  align-content: start;
 }
 
 .stats--inline .stat {
@@ -527,7 +596,19 @@ select.control__input {
 }
 
 .stats--inline .stat__value {
-  font-size: var(--text-base);
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
+}
+
+@media (min-width: 768px) {
+  .stats--inline {
+    grid-template-columns: repeat(auto-fit, minmax(8rem, max-content));
+    gap: var(--space-3) var(--space-6);
+  }
+
+  .stats--inline .stat__value {
+    white-space: nowrap;
+  }
 }
 
 .legend__item--grace i {
@@ -559,6 +640,7 @@ select.control__input {
   cursor: pointer;
   list-style: none;
   user-select: none;
+  transition: background-color var(--duration-fast);
 }
 
 .menu__button::-webkit-details-marker {
@@ -582,6 +664,11 @@ select.control__input {
   background: var(--color-ink-solid-hover);
 }
 
+.menu__button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 .menu__list {
   position: absolute;
   right: 0;
@@ -593,9 +680,7 @@ select.control__input {
   list-style: none;
   border-radius: var(--radius-md);
   background: var(--color-paper);
-  box-shadow:
-    0 12px 32px -8px rgb(22 26 36 / 28%),
-    0 0 0 1px rgb(22 26 36 / 6%);
+  box-shadow: var(--shadow-menu);
 }
 
 .menu__item {
@@ -685,4 +770,13 @@ select.control__input {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
+}
+
+/* Место под результаты сравнения до отрисовки скриптом: страница не прыгает */
+.compare__scenarios {
+  min-height: 24rem;
+}
+
+.compare__table-wrap {
+  min-height: 22rem;
 }

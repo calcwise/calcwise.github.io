@@ -43,11 +43,15 @@ const { class: className } = Astro.props;
     color: var(--color-ink);
   }
 
+  /* Формула — строка из расчётной книги: чернила на листе */
   .prose .formula {
     font-size: var(--text-lg);
+    font-weight: 500;
+    color: var(--color-ink);
     padding: var(--space-4) var(--space-5);
-    border-left: 3px solid var(--color-ink);
+    border-radius: var(--radius-md);
     background: var(--color-paper);
+    box-shadow: var(--shadow-panel);
     font-variant-numeric: tabular-nums;
     overflow-x: auto;
   }

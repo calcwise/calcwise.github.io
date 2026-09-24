@@ -5,8 +5,7 @@ import Disclaimer from '@/components/organisms/disclaimer.astro';
 import MortgageCalculator from '@/components/organisms/mortgage-calculator.astro';
 import PageIntro from '@/components/organisms/page-intro.astro';
 import { siteConfig } from '@/config/site';
-import { mortgageFaq } from '@/lib/mortgage-pages';
-import { breadcrumbsJsonLd, faqJsonLd, webApplicationJsonLd } from '@/lib/seo';
+import { breadcrumbsJsonLd, webApplicationJsonLd } from '@/lib/seo';
 import { DEFAULT_STATE } from '@/lib/url-state';
 
 const path = '/mortgage/';
@@ -29,7 +28,6 @@ const jsonLd = [
       'Экспорт графика в CSV и печать',
     ],
   }),
-  faqJsonLd(mortgageFaq.slice(0, 3)),
   breadcrumbsJsonLd(siteConfig.siteUrl, [
     { name: 'Главная', path: '/' },
     { name: 'Ипотека', path },

@@ -42,7 +42,7 @@ src/
 │   ├── url-state.ts  calculator state ⇄ query string (shareable links)
 │   ├── charts.ts     SVG charts as strings
 │   ├── mortgage-pages.ts  content of /mortgage/<slug>/ intent pages
-│   ├── presets.ts    rate presets (BY primary, RU secondary) — reference values, editable
+│   ├── schedule-render.ts HTML strings for results, shared by build-time prerender and client
 │   └── seo.ts, menu.ts, format.ts, csv.ts, dom.ts, lastmod.ts, speculation.ts
 └── config/           site.ts, tokens.css, components.css, fonts.css, global.css
 
@@ -95,8 +95,10 @@ URLs are English, nested, with a trailing slash (`trailingSlash: 'always'`,
 `build.format: 'directory'`). Every page gets unique title/description, canonical, Open Graph
 and JSON-LD through `BaseLayout` props only. `title` is the H1; `<title>` is built by
 `buildTitle` (brand suffix only when ≤ 60 chars); descriptions are clamped to 160 chars.
-JSON-LD only via `lib/seo.ts` generators: WebApplication + FAQPage + BreadcrumbList on
-calculator pages, Article + FAQPage on the guide. Breadcrumbs exist only in markup.
+JSON-LD only via `lib/seo.ts` generators: WebApplication + BreadcrumbList on calculator
+pages, FAQPage only where the questions are visible (`/faq/`, `/guide/`), Article on the guide.
+Breadcrumbs exist only in markup. Calculator pages prerender the results of their initial state
+at build time (same HTML strings as the client uses), so there is no layout shift on load.
 
 Intent pages (`/mortgage/annuity/`, `/differentiated/`, `/early-repayment/`,
 `/grace-period/`, `/preferential-rate/`) are data in `lib/mortgage-pages.ts`: same calculator,
@@ -111,7 +113,7 @@ It is the only redirect map: renaming a page means adding a 301 there.
 ## Content rules
 
 Every calculator page shows the disclaimer that bank terms may differ (day-count, dates,
-fees, insurance). Presets are labelled as reference values. Write copy in plain, living
+fees, insurance). There are no rate presets by the owner's decision. Write copy in plain, living
 Russian: no bureaucratese, no SEO filler, sentence case, no ALL-CAPS labels. Comments in
 Russian, only where code cannot speak for itself.
 

@@ -327,6 +327,7 @@ function renderChart(box: HTMLElement, results: Array<ScheduleResult | null>): v
     .filter((x): x is { r: ScheduleResult; i: number } => x.r !== null);
   if (live.length === 0) {
     box.innerHTML = '';
+    q(box.parentElement!, '[data-legend]').replaceChildren();
     return;
   }
   const width = 720;

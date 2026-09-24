@@ -136,8 +136,9 @@ export function buildSchedule(rawInput: ScheduleInput): ScheduleResult {
       principal = new Big(0);
       payment = interest;
       graceInterest = graceInterest.plus(interest);
-      /* После отсрочки платёж считается заново на остаток и оставшиеся месяцы */
-      if (!graceFlags[month + 1]) needRecalc = true;
+      /* После отсрочки платёж считается заново на остаток и оставшиеся месяцы;
+         при досрочке «в срок» внутри отсрочки платёж уже зафиксирован — срок сократится сам */
+      if (!graceFlags[month + 1] && !(termShortened && segmentRate !== null)) needRecalc = true;
     } else {
       principal = input.type === 'annuity' ? fixedPayment.minus(interest) : fixedPrincipal;
       if (principal.lt(0)) {
@@ -156,7 +157,19 @@ export function buildSchedule(rawInput: ScheduleInput): ScheduleResult {
       prepayment = extra.amount.gt(room) ? room : extra.amount;
       if (prepayment.gt(0)) {
         if (extra.reducePayment) needRecalc = true;
-        else termShortened = true;
+        else {
+          /* Режим «срок»: платёж должен остаться таким, каким был бы без этой досрочки.
+             Если платёжный сегмент ещё не начался (досрочка в отсрочку), фиксируем его
+             сейчас — по остатку до досрочки и оставшимся платёжным месяцам. */
+          if (segmentRate === null) {
+            const remaining = Math.max(1, payingLeft[month + 1] ?? 0);
+            if (input.type === 'annuity') fixedPayment = annuityPayment(balance, rate, remaining);
+            else fixedPrincipal = trim(balance.div(remaining));
+            segmentRate = rate;
+            needRecalc = false;
+          }
+          termShortened = true;
+        }
       }
     }
 

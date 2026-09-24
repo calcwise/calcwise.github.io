@@ -24,18 +24,13 @@ import {
   termSensitivity,
   yearSummaries,
 } from './mortgage/index.ts';
-import type {
-  GracePeriod,
-  Prepayment,
-  RatePeriod,
-  ScheduleResult,
-  SensitivityCell,
-} from './mortgage/index.ts';
+import type { GracePeriod, Prepayment, RatePeriod, ScheduleResult } from './mortgage/index.ts';
 import {
-  describeState,
-  keyStats,
+  renderKeyFigures,
   renderScheduleTable,
   renderYearsTable,
+  sensitivityHtml,
+  statsHtml,
 } from './schedule-render.ts';
 import { DEFAULT_STATE, decodeState, encodeState } from './url-state.ts';
 import type { CalculatorState } from './url-state.ts';
@@ -376,68 +371,8 @@ function showErrors(refs: FormRefs, errors: FieldError[]): void {
 /* Результаты                                                          */
 /* ------------------------------------------------------------------ */
 
-function stat(
-  label: string,
-  value: string,
-  note?: string,
-  tone?: 'principal' | 'interest' | 'prepay',
-): HTMLElement {
-  return el('div', { class: `stat${tone ? ` stat--${tone}` : ''}` }, [
-    el('dt', { class: 'stat__label', text: label }),
-    el('dd', { class: 'stat__value num', text: value }),
-    note ? el('dd', { class: 'stat__note', text: note }) : null,
-  ]);
-}
-
 function renderSummary(root: HTMLElement, state: CalculatorState, r: ScheduleResult): void {
-  q(root, '[data-out="conditions"]').textContent = describeState(state, r);
-  const figure = q(root, '[data-out="figure"]');
-  const figureLabel = q(root, '[data-out="figure-label"]');
-  const figureNote = q(root, '[data-out="figure-note"]');
-  const grace = r.rows.find((row) => row.isGrace);
-  const firstRegular = r.rows.find((row) => !row.isGrace) ?? r.rows[0]!;
-  const lastRegular =
-    [...r.rows].reverse().find((row) => !row.isGrace) ?? r.rows[r.rows.length - 1]!;
-  const ratePeriods = r.input.rates
-    .slice(1)
-    .map((period) => r.rows.find((row) => row.month >= period.fromMonth && !row.isGrace))
-    .filter((row): row is NonNullable<typeof row> => row !== undefined);
-  const reducing = r.input.prepayments.some((p) => p.mode === 'payment');
-
-  figure.textContent = fmtMoney(firstRegular.payment);
-  const notes: string[] = [];
-  if (r.input.type === 'annuity') {
-    figureLabel.textContent = ratePeriods.length
-      ? 'Платёж в первый период'
-      : reducing
-        ? 'Платёж до досрочного погашения'
-        : 'Ежемесячный платёж';
-    if (grace) notes.push(`в отсрочку ${fmtMoney(grace.payment)}`);
-    for (const row of ratePeriods)
-      notes.push(
-        `с ${row.month}-го месяца ${fmtMoney(row.payment)} при ставке ${fmtRate(row.ratePercent)}%`,
-      );
-    if (reducing) notes.push(`после досрочки ${fmtMoney(lastRegular.payment)}`);
-  } else {
-    figureLabel.textContent = 'Первый платёж';
-    notes.push(`последний ${fmtMoney(lastRegular.payment)}`);
-    if (grace) notes.push(`в отсрочку от ${fmtMoney(grace.payment)}`);
-  }
-  figureNote.textContent = notes.join(', ');
-
-  const stats = q(root, '[data-out="stats"]');
-  clear(stats);
-  for (const item of keyStats(r)) stats.append(stat(item.label, item.value, item.note, item.tone));
-
-  const share = q(root, '[data-out="share"]');
-  const principalShare = (r.summary.totalPrincipal / r.summary.totalPaid) * 100;
-  q<HTMLElement>(share, '.share__principal').style.width = `${principalShare}%`;
-  q<HTMLElement>(share, '.share__interest').style.width = `${100 - principalShare}%`;
-  q(root, '[data-out="share-principal"]').textContent =
-    `Основной долг ${principalShare.toFixed(1)}%`;
-  q(root, '[data-out="share-interest"]').textContent =
-    `Проценты ${(100 - principalShare).toFixed(1)}%`;
-
+  renderKeyFigures(root, state, r);
   q(root, '[data-out="legend-grace"]').hidden = r.summary.graceMonths === 0;
   q(root, '[data-out="legend-prepay"]').hidden = r.summary.totalPrepaid === 0;
 
@@ -458,54 +393,32 @@ function renderSummary(root: HTMLElement, state: CalculatorState, r: ScheduleRes
 function renderEffect(root: HTMLElement, r: ScheduleResult): ReturnType<typeof prepaymentEffect> {
   const box = q(root, '[data-out="effect"]');
   const effect = prepaymentEffect(r);
-  clear(box);
   box.hidden = !effect;
-  if (!effect) return null;
-  box.append(
-    el('h2', { class: 'results__heading', text: 'Эффект досрочных погашений' }),
-    el('dl', { class: 'stats' }, [
-      stat(
-        'Экономия на процентах',
-        fmtMoney(effect.interestSaved),
-        `без досрочек переплата ${fmtMoney(effect.baseline.summary.totalInterest)}`,
-        'interest',
-      ),
+  if (!effect) {
+    box.innerHTML = '';
+    return null;
+  }
+  box.innerHTML =
+    '<h2 class="results__heading">Эффект досрочных погашений</h2>' +
+    `<dl class="stats">${statsHtml([
+      {
+        label: 'Экономия на процентах',
+        value: fmtMoney(effect.interestSaved),
+        note: `без досрочек переплата ${fmtMoney(effect.baseline.summary.totalInterest)}`,
+        tone: 'interest',
+      },
       effect.monthsSaved > 0
-        ? stat(
-            'Кредит закрыт раньше',
-            `на ${fmtMonthsAsYears(effect.monthsSaved)}`,
-            `за ${fmtMonthsAsYears(r.summary.actualMonths)} вместо ${fmtMonthsAsYears(effect.baseline.summary.actualMonths)}`,
-          )
+        ? {
+            label: 'Кредит закрыт раньше',
+            value: `на ${fmtMonthsAsYears(effect.monthsSaved)}`,
+            note: `за ${fmtMonthsAsYears(r.summary.actualMonths)} вместо ${fmtMonthsAsYears(effect.baseline.summary.actualMonths)}`,
+          }
         : null,
       effect.paymentReduced > 0
-        ? stat('Платёж снижен', `на ${fmtMoney(effect.paymentReduced)}`)
+        ? { label: 'Платёж снижен', value: `на ${fmtMoney(effect.paymentReduced)}` }
         : null,
-    ]),
-  );
+    ])}</dl>`;
   return effect;
-}
-
-function sensitivityTable(cells: SensitivityCell[], head: string): HTMLElement {
-  return el('table', { class: 'mini-table num' }, [
-    el('thead', {}, [
-      el('tr', {}, [
-        el('th', { text: head, scope: 'col' }),
-        el('th', { text: 'Платёж', scope: 'col' }),
-        el('th', { text: 'Переплата', scope: 'col' }),
-      ]),
-    ]),
-    el(
-      'tbody',
-      {},
-      cells.map((c) =>
-        el('tr', { class: c.isCurrent ? 'mini-table__current' : '' }, [
-          el('th', { scope: 'row', text: c.label }),
-          el('td', { text: fmtMoney(c.payment) }),
-          el('td', { text: fmtMoney(c.totalInterest) }),
-        ]),
-      ),
-    ),
-  ]);
 }
 
 function renderAnalysis(
@@ -520,13 +433,13 @@ function renderAnalysis(
   renderYearsTable(root, r);
   const rateBox = q(root, '[data-out="sens-rate"]');
   const termBox = q(root, '[data-out="sens-term"]');
-  clear(rateBox);
-  clear(termBox);
   try {
-    rateBox.append(sensitivityTable(rateSensitivity(state), 'Ставка'));
-    termBox.append(sensitivityTable(termSensitivity(state), 'Срок'));
+    rateBox.innerHTML = sensitivityHtml(rateSensitivity(state), 'Ставка');
+    termBox.innerHTML = sensitivityHtml(termSensitivity(state), 'Срок');
   } catch {
     /* вспомогательный блок: при экзотических параметрах просто пуст */
+    rateBox.innerHTML = '';
+    termBox.innerHTML = '';
   }
 }
 
@@ -651,7 +564,7 @@ export function initCalculator(root: HTMLElement): void {
     const effect = renderEffect(root, result);
     renderAnalysis(root, state, result, effect?.baseline);
     renderTargetTerm(root, state);
-    save(state);
+    if (!pageHasPreset) save(state);
     const url = new URL(location.href);
     url.search = encodeState(state).toString();
     history.replaceState(null, '', url);

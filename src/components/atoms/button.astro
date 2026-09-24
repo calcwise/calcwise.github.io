@@ -39,7 +39,7 @@ const classes = ['button', `button--${variant}`, `button--${size}`, className];
     min-height: var(--control-height);
     padding: 0 var(--space-5);
     border-radius: var(--radius-md);
-    border: 1px solid transparent;
+    border: 0;
     font-weight: 600;
     font-size: var(--text-sm);
     line-height: 1;
@@ -48,7 +48,6 @@ const classes = ['button', `button--${variant}`, `button--${size}`, className];
     white-space: nowrap;
     transition:
       background-color var(--duration-fast),
-      border-color var(--duration-fast),
       color var(--duration-fast);
   }
 
@@ -67,15 +66,14 @@ const classes = ['button', `button--${variant}`, `button--${size}`, className];
     background: var(--color-ink-solid-hover);
   }
 
+  /* Вторичная кнопка: тональная заливка чернилами вместо обводки */
   .button--outline {
-    border-color: var(--color-control-border);
-    background: var(--color-paper);
-    color: var(--color-text);
+    background: var(--color-ink-soft);
+    color: var(--color-ink);
   }
 
   .button--outline:hover {
-    border-color: var(--color-ink);
-    color: var(--color-ink);
+    background: var(--color-ink-soft-hover);
   }
 
   .button--ghost {

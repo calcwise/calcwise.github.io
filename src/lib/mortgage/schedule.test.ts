@@ -435,3 +435,19 @@ test('валидация', () => {
   );
   assert.doesNotThrow(() => buildSchedule({ ...base, amount: '100000' }));
 });
+
+test('досрочка «в срок» внутри отсрочки: платёж после отсрочки прежний, срок короче', () => {
+  const base = fixed(250_000, 15.4, 240, 'annuity', { gracePeriods: [{ start: 1, months: 12 }] });
+  const plain = buildSchedule(base);
+  const r = buildSchedule({
+    ...base,
+    prepayments: [{ month: 6, amount: 25_000, mode: 'term', repeat: 'once' }],
+  });
+  assert.equal(r.rows[5]!.prepayment, 25_000);
+  assert.equal(r.rows[12]!.payment, plain.rows[12]!.payment, 'платёж после отсрочки не изменился');
+  assert.ok(r.summary.actualMonths < 240, 'кредит закрыт раньше');
+  assert.equal(r.rows.at(-1)!.balance, 0);
+  assert.ok(r.summary.totalInterest < plain.summary.totalInterest);
+  const effect = prepaymentEffect(r)!;
+  assert.ok(effect.monthsSaved > 0);
+});

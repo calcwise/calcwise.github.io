@@ -1,10 +1,18 @@
 ---
-/* Таблица графика платежей. Строки рисует lib/schedule-render.ts */
+/* Таблица графика платежей. Стартовые строки — при сборке, пересчёт — lib/schedule-render.ts */
+import { fmtMoney } from '@/lib/format';
+import type { ScheduleResult } from '@/lib/mortgage';
+import { scheduleRowsHtml } from '@/lib/schedule-render';
+
 interface Props {
   /** Ограничить высоту и прокручивать внутри (страница калькулятора) */
   scroll?: boolean;
+  /** Результат для стартовых строк; без него таблица пустая до расчёта скриптом */
+  result?: ScheduleResult;
 }
-const { scroll = true } = Astro.props;
+const { scroll = true, result } = Astro.props;
+const hasRates = (result?.input.rates.length ?? 0) > 1;
+const hasPrepay = (result?.summary.totalPrepaid ?? 0) > 0;
 ---
 
 <div class:list={['table-wrap', { 'table-wrap--tall': scroll }]}>
@@ -12,26 +20,35 @@ const { scroll = true } = Astro.props;
     <thead>
       <tr>
         <th scope="col">№</th>
-        <th scope="col" data-col="rate">Ставка</th>
+        <th scope="col" data-col="rate" hidden={!hasRates}>Ставка</th>
         <th scope="col">Платёж</th>
         <th scope="col">Основной долг</th>
         <th scope="col">Проценты</th>
-        <th scope="col" data-col="prepayment">Досрочно</th>
+        <th scope="col" data-col="prepayment" hidden={!hasPrepay}>Досрочно</th>
         <th scope="col">Остаток долга</th>
         <th scope="col">Выплачено всего</th>
         <th scope="col">Выплачено процентов</th>
         <th scope="col">Осталось выплатить</th>
       </tr>
     </thead>
-    <tbody data-out="schedule-body"></tbody>
+    <tbody data-out="schedule-body" set:html={result ? scheduleRowsHtml(result) : ''} />
     <tfoot>
       <tr>
         <th scope="row">Итого</th>
-        <td data-col="rate"></td>
-        <td class="num" data-out="foot-paid"></td>
-        <td class="num cell--principal" data-out="foot-principal"></td>
-        <td class="num cell--interest" data-out="foot-interest"></td>
-        <td class="num cell--prepay" data-col="prepayment" data-out="foot-prepay"></td>
+        <td data-col="rate" hidden={!hasRates}></td>
+        <td class="num" data-out="foot-paid">{result && fmtMoney(result.summary.totalPaid)}</td>
+        <td class="num cell--principal" data-out="foot-principal"
+          >{result && fmtMoney(result.summary.totalPrincipal)}</td
+        >
+        <td class="num cell--interest" data-out="foot-interest"
+          >{result && fmtMoney(result.summary.totalInterest)}</td
+        >
+        <td
+          class="num cell--prepay"
+          data-col="prepayment"
+          data-out="foot-prepay"
+          hidden={!hasPrepay}>{hasPrepay && result && fmtMoney(result.summary.totalPrepaid)}</td
+        >
         <td></td>
         <td></td>
         <td></td>

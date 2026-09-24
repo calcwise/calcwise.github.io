@@ -5,6 +5,18 @@
  * lib/calculator-ui.ts; стартовое состояние — в data-initial.
  */
 import ScheduleTable from '@/components/organisms/schedule-table.astro';
+import { balanceChart, yearsChart } from '@/lib/charts';
+import { buildSchedule, rateSensitivity, termSensitivity, yearSummaries } from '@/lib/mortgage';
+import {
+  describeState,
+  figureText,
+  keyStats,
+  rowsCountText,
+  sensitivityHtml,
+  shareText,
+  statsHtml,
+  yearsRowsHtml,
+} from '@/lib/schedule-render';
 import type { CalculatorState } from '@/lib/url-state';
 
 interface Props {
@@ -13,6 +25,14 @@ interface Props {
   preset?: boolean;
 }
 const { initial, preset = false } = Astro.props;
+
+/* Результаты для стартового состояния считаются при сборке: страница приходит
+   уже с цифрами и таблицей, скрипт лишь подхватывает форму. Без прыжков макета
+   и с осмысленным содержимым без JavaScript. */
+const result = buildSchedule(initial);
+const figure = figureText(result);
+const share = shareText(result);
+const conditions = describeState(initial, result);
 ---
 
 <section
@@ -92,64 +112,81 @@ const { initial, preset = false } = Astro.props;
       </summary>
       <div class="calc__extra-body">
         <section class="block" aria-labelledby="rates-heading">
-          <h3 class="block__title" id="rates-heading">Ставка по периодам</h3>
-          <p class="block__hint">
-            Например, льготная на первый год и рыночная после. Первая ставка задана выше.
-          </p>
-          <div class="rows" data-list="rates"></div>
-          <button type="button" class="add" data-add="rates">Добавить период</button>
+          <div class="block__head">
+            <h2 class="block__title" id="rates-heading">Ставка по периодам</h2>
+            <p class="block__hint">
+              Например, льготная на первый год и рыночная после. Первая ставка задана выше.
+            </p>
+          </div>
+          <div class="block__body">
+            <div class="rows" data-list="rates"></div>
+            <button type="button" class="add" data-add="rates">Добавить период</button>
+          </div>
         </section>
 
         <section class="block" aria-labelledby="grace-heading">
-          <h3 class="block__title" id="grace-heading">Отсрочка по основному долгу</h3>
-          <p class="block__hint">Месяцы, когда платятся только проценты.</p>
-          <div class="rows" data-list="grace"></div>
-          <button type="button" class="add" data-add="grace">Добавить отсрочку</button>
-          <label class="check">
-            <input type="checkbox" data-field="grace-extends" />
-            <span>Отсрочка продлевает срок кредита</span>
-          </label>
+          <div class="block__head">
+            <h2 class="block__title" id="grace-heading">Отсрочка по основному долгу</h2>
+            <p class="block__hint">Месяцы, когда платятся только проценты.</p>
+          </div>
+          <div class="block__body">
+            <div class="rows" data-list="grace"></div>
+            <button type="button" class="add" data-add="grace">Добавить отсрочку</button>
+            <label class="check">
+              <input type="checkbox" data-field="grace-extends" />
+              <span>Отсрочка продлевает срок кредита</span>
+            </label>
+          </div>
         </section>
 
         <section class="block" aria-labelledby="prepay-heading">
-          <h3 class="block__title" id="prepay-heading">Досрочные погашения</h3>
-          <p class="block__hint">Разово или регулярно, с уменьшением срока или платежа.</p>
-          <div class="rows" data-list="prepayments"></div>
-          <button type="button" class="add" data-add="prepayments">Добавить погашение</button>
-          <div class="target">
-            <label class="control">
-              <span class="control__label">Хочу закрыть кредит за</span>
-              <span class="control__field">
-                <input
-                  class="control__input num"
-                  data-target-years
-                  inputmode="decimal"
-                  placeholder="10"
-                />
-                <span class="control__unit">лет</span>
-              </span>
-            </label>
-            <p class="target__result" data-target-result aria-live="polite"></p>
+          <div class="block__head">
+            <h2 class="block__title" id="prepay-heading">Досрочные погашения</h2>
+            <p class="block__hint">Разово или регулярно, с уменьшением срока или платежа.</p>
+          </div>
+          <div class="block__body">
+            <div class="rows" data-list="prepayments"></div>
+            <button type="button" class="add" data-add="prepayments">Добавить погашение</button>
+            <div class="target">
+              <label class="control">
+                <span class="control__label">Хочу закрыть кредит за</span>
+                <span class="control__field">
+                  <input
+                    class="control__input num"
+                    data-target-years
+                    inputmode="decimal"
+                    placeholder="10"
+                  />
+                  <span class="control__unit">лет</span>
+                </span>
+              </label>
+              <p class="target__result" data-target-result aria-live="polite"></p>
+            </div>
           </div>
         </section>
       </div>
     </details>
 
     <ul class="errors" data-errors hidden aria-live="polite"></ul>
+    <noscript>
+      <p class="calc__noscript">
+        Без JavaScript форма не пересчитывает график. Ниже показан расчёт для условий по умолчанию.
+      </p>
+    </noscript>
   </form>
 
   <p class="calc__empty" data-empty hidden>Исправьте значения в форме, чтобы увидеть график.</p>
 
   <div class="results" data-results>
     <header class="results__head">
-      <p class="results__conditions" data-out="conditions"></p>
+      <p class="results__conditions" data-out="conditions">{conditions}</p>
       <div class="results__figure-row">
         <p class="figure">
-          <span class="figure__label" data-out="figure-label">Ежемесячный платёж</span>
-          <strong class="figure__value num" data-out="figure"></strong>
-          <span class="figure__note num" data-out="figure-note"></span>
+          <span class="figure__label" data-out="figure-label">{figure.label}</span>
+          <strong class="figure__value num" data-out="figure">{figure.value}</strong>
+          <span class="figure__note num" data-out="figure-note">{figure.note}</span>
         </p>
-        <dl class="stats stats--inline" data-out="stats"></dl>
+        <dl class="stats stats--inline" data-out="stats" set:html={statsHtml(keyStats(result))} />
         <details class="menu no-print" data-menu>
           <summary class="menu__button">Действия</summary>
           <ul class="menu__list" role="list">
@@ -178,9 +215,9 @@ const { initial, preset = false } = Astro.props;
     <section class="results__schedule" aria-labelledby="schedule-heading">
       <div class="results__row">
         <h2 class="results__heading" id="schedule-heading">График платежей</h2>
-        <span class="results__count" data-out="rows-count"></span>
+        <span class="results__count" data-out="rows-count">{rowsCountText(result)}</span>
       </div>
-      <ScheduleTable />
+      <ScheduleTable result={result} />
       <p class="legend">
         <span class="legend__item legend__item--principal"><i></i>основной долг</span>
         <span class="legend__item legend__item--interest"><i></i>проценты</span>
@@ -198,22 +235,22 @@ const { initial, preset = false } = Astro.props;
     <section class="results__analysis" aria-labelledby="analysis-heading">
       <h2 class="results__heading" id="analysis-heading">Как распределяются выплаты</h2>
       <div class="share" data-out="share" aria-hidden="true">
-        <span class="share__principal"></span>
-        <span class="share__interest"></span>
+        <span class="share__principal" style={`width:${share.principal}%`}></span>
+        <span class="share__interest" style={`width:${100 - share.principal}%`}></span>
       </div>
       <p class="legend">
         <span class="legend__item legend__item--principal"
-          ><i></i><span data-out="share-principal"></span></span
+          ><i></i><span data-out="share-principal">{share.labelPrincipal}</span></span
         >
         <span class="legend__item legend__item--interest"
-          ><i></i><span data-out="share-interest"></span></span
+          ><i></i><span data-out="share-interest">{share.labelInterest}</span></span
         >
       </p>
 
       <div class="results__grid results__grid--charts no-print">
         <div class="results__block">
           <h3 class="results__subheading">Остаток долга</h3>
-          <div class="chart-box" data-chart="balance"></div>
+          <div class="chart-box" data-chart="balance" set:html={balanceChart(result)} />
           <p class="legend" data-out="balance-legend" hidden>
             <span class="legend__item legend__item--line"><i></i>с досрочными погашениями</span>
             <span class="legend__item legend__item--dashed"><i></i>без них</span>
@@ -221,7 +258,7 @@ const { initial, preset = false } = Astro.props;
         </div>
         <div class="results__block">
           <h3 class="results__subheading">Выплаты по годам</h3>
-          <div class="chart-box" data-chart="years"></div>
+          <div class="chart-box" data-chart="years" set:html={yearsChart(yearSummaries(result))} />
         </div>
       </div>
 
@@ -238,7 +275,7 @@ const { initial, preset = false } = Astro.props;
                 <th scope="col">Остаток долга</th>
               </tr>
             </thead>
-            <tbody data-out="years-body"></tbody>
+            <tbody data-out="years-body" set:html={yearsRowsHtml(result)} />
           </table>
         </div>
       </div>
@@ -246,11 +283,14 @@ const { initial, preset = false } = Astro.props;
       <div class="results__grid no-print">
         <div class="results__block">
           <h3 class="results__subheading">Если ставка будет другой</h3>
-          <div data-out="sens-rate"></div>
+          <div
+            data-out="sens-rate"
+            set:html={sensitivityHtml(rateSensitivity(initial), 'Ставка')}
+          />
         </div>
         <div class="results__block">
           <h3 class="results__subheading">Если срок будет другим</h3>
-          <div data-out="sens-term"></div>
+          <div data-out="sens-term" set:html={sensitivityHtml(termSensitivity(initial), 'Срок')} />
         </div>
       </div>
     </section>
@@ -271,7 +311,7 @@ const { initial, preset = false } = Astro.props;
   .calc__form {
     display: grid;
     gap: var(--space-4);
-    padding: var(--space-5);
+    padding: var(--space-4);
     border-radius: var(--radius-lg);
     background: var(--color-paper);
     box-shadow: var(--shadow-panel);
@@ -331,17 +371,37 @@ const { initial, preset = false } = Astro.props;
 
   .calc__extra-body {
     display: grid;
-    gap: var(--space-5);
-    padding-top: var(--space-4);
+    padding-top: var(--space-2);
   }
 
+  /* Блоки условий идут полосами через линейку: заголовок и подсказка слева, строки справа */
   .block {
+    display: grid;
+    gap: var(--space-3) var(--space-6);
+    align-content: start;
+    padding-block: var(--space-5);
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .block:first-child {
+    border-top: 0;
+  }
+
+  .block:last-child {
+    padding-bottom: var(--space-2);
+  }
+
+  .block__head {
+    display: grid;
+    gap: var(--space-1);
+    align-content: start;
+  }
+
+  .block__body {
     display: grid;
     gap: var(--space-3);
     align-content: start;
-    padding: var(--space-4);
-    border-radius: var(--radius-md);
-    background: var(--color-paper-2);
+    min-width: 0;
   }
 
   .block__title {
@@ -350,9 +410,9 @@ const { initial, preset = false } = Astro.props;
   }
 
   .block__hint {
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     color: var(--color-text-muted);
-    margin-top: calc(-1 * var(--space-2));
+    max-width: 30rem;
   }
 
   .target {
@@ -360,6 +420,10 @@ const { initial, preset = false } = Astro.props;
     gap: var(--space-2);
     padding-top: var(--space-3);
     border-top: 1px solid var(--color-rule);
+  }
+
+  .target .control {
+    max-width: 16rem;
   }
 
   .target__result {
@@ -374,6 +438,11 @@ const { initial, preset = false } = Astro.props;
     background: var(--color-danger-soft);
     color: var(--color-danger);
     font-size: var(--text-sm);
+  }
+
+  .calc__noscript {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
   }
 
   .calc__empty {
@@ -403,7 +472,7 @@ const { initial, preset = false } = Astro.props;
   .results__figure-row {
     display: grid;
     gap: var(--space-5);
-    align-items: end;
+    align-items: start;
   }
 
   .figure {
@@ -469,7 +538,7 @@ const { initial, preset = false } = Astro.props;
     display: grid;
     gap: var(--space-4);
     padding: var(--space-5);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     background: var(--color-prepay-soft);
   }
 
@@ -479,13 +548,13 @@ const { initial, preset = false } = Astro.props;
   }
 
   @media (min-width: 768px) {
-    .calc__main {
-      grid-template-columns: 1.3fr 1fr 1.2fr 1.6fr;
-      align-items: start;
+    .calc__form {
+      padding: var(--space-5) var(--space-6);
     }
 
-    .calc__extra-body {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+    .calc__main {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
     }
 
     .results__grid {
@@ -494,6 +563,16 @@ const { initial, preset = false } = Astro.props;
 
     .results__figure-row {
       grid-template-columns: auto 1fr auto;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .calc__main {
+      grid-template-columns: 1.3fr 1fr 1.2fr 1.6fr;
+    }
+
+    .block {
+      grid-template-columns: minmax(0, 17rem) minmax(0, 1fr);
     }
   }
 

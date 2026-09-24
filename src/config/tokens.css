@@ -22,9 +22,7 @@
   --color-text: light-dark(#161a24, #e8eaf0);
   --color-text-muted: light-dark(#5b6270, #9aa2b3);
   --color-rule: light-dark(#d9dbd6, #2e3340);
-  --color-rule-strong: light-dark(#8b9099, #5c6475);
-  /* Контур поля ввода: контраст ≥ 3:1 и к бумаге, и к фону страницы (WCAG 1.4.11) */
-  --color-control-border: light-dark(#7c8391, #6e778a);
+  --color-rule-strong: light-dark(#8b9099, #7a849a);
 
   /* Акцент интерфейса: чернила. Один цвет для действий, ссылок и фокуса */
   --color-ink: light-dark(#1d3f8f, #8fb0ff);
@@ -32,14 +30,15 @@
   --color-ink-solid-hover: light-dark(#152f6d, #2f52ab);
   --color-on-ink: #ffffff;
   --color-ink-soft: light-dark(#e6ecfa, #1f2a45);
+  --color-ink-soft-hover: light-dark(#d9e2f6, #263457);
   --color-focus: light-dark(#1d3f8f, #8fb0ff);
 
   /* Цвета данных: смысловые, не декоративные */
   --color-principal: light-dark(#136c4b, #4fbf8e);
   --color-principal-soft: light-dark(#d9efe4, #163b2c);
-  --color-interest: light-dark(#a8621a, #e9a556);
+  --color-interest: light-dark(#8f5211, #e9a556);
   --color-interest-soft: light-dark(#f6e6d1, #3d2d17);
-  --color-grace-soft: light-dark(#f8efdc, #3a3120);
+  --color-grace-soft: light-dark(#f8efdc, #302b20);
   --color-prepay: light-dark(#5a2ca0, #b993f5);
   --color-prepay-soft: light-dark(#ece3fa, #2d2246);
   --color-danger: light-dark(#b42318, #f0766c);
@@ -47,6 +46,8 @@
   /* Заливка полей ввода: без обводки, поле читается по фону */
   --color-field: light-dark(#f1f2ef, #262a34);
   --color-field-hover: light-dark(#eaebe7, #2c313c);
+  /* Активная «таблетка» сегментного переключателя: в тёмной теме светлее дорожки */
+  --color-thumb: light-dark(#ffffff, #3a4152);
 
   /* Типографика: Golos Text — один шрифт для всего, табличные цифры в данных */
   --font-sans:
@@ -81,8 +82,12 @@
   --radius-md: 8px;
   --radius-lg: 14px;
   --radius-full: 999px;
-  /* Панель формы приподнята над страницей вместо обводки */
+  /* Поверхности различаются тенью, а не обводкой: лист, таблетка сегмента, выпадающее меню */
   --shadow-panel: 0 1px 2px rgb(22 26 36 / 6%), 0 8px 24px -12px rgb(22 26 36 / 18%);
+  --shadow-thumb: 0 1px 2px rgb(22 26 36 / 14%), 0 0 0 1px rgb(22 26 36 / 4%);
+  --shadow-menu:
+    0 12px 32px -8px rgb(22 26 36 / 28%),
+    0 0 0 1px light-dark(rgb(22 26 36 / 6%), rgb(232 234 240 / 10%));
   --container-max: 1280px;
   --container-pad: clamp(1rem, 4vw, 2.5rem);
   --header-height: 4rem;
@@ -109,15 +114,15 @@
     --color-text-muted: #5b6270;
     --color-rule: #d9dbd6;
     --color-rule-strong: #8b9099;
-    --color-control-border: #7c8391;
     --color-ink: #1d3f8f;
     --color-ink-solid: #1d3f8f;
     --color-ink-solid-hover: #152f6d;
     --color-ink-soft: #e6ecfa;
+    --color-ink-soft-hover: #d9e2f6;
     --color-focus: #1d3f8f;
     --color-principal: #136c4b;
     --color-principal-soft: #d9efe4;
-    --color-interest: #a8621a;
+    --color-interest: #8f5211;
     --color-interest-soft: #f6e6d1;
     --color-grace-soft: #f8efdc;
     --color-prepay: #5a2ca0;
@@ -126,5 +131,7 @@
     --color-danger-soft: #fbe9e7;
     --color-field: #f1f2ef;
     --color-field-hover: #eaebe7;
+    --color-thumb: #ffffff;
+    --shadow-menu: 0 12px 32px -8px rgb(22 26 36 / 28%), 0 0 0 1px rgb(22 26 36 / 6%);
   }
 }

@@ -41,49 +41,55 @@ const rate = DEFAULT_STATE.rates[0]!.ratePercent;
           {fmtMoney(sample.summary.amount)} на {DEFAULT_STATE.months / 12} лет под {fmtRate(rate)}%
           годовых, аннуитет
         </figcaption>
-        <table class="ledger__table num">
-          <thead>
-            <tr><th>№</th><th>Платёж</th><th>Долг</th><th>Проценты</th><th>Остаток</th></tr>
-          </thead>
-          <tbody>
-            {
-              sampleRows.map((row) => (
-                <tr>
-                  <td>{row.month}</td>
-                  <td>{fmtMoney(row.payment)}</td>
-                  <td class="ledger__principal">{fmtMoney(row.principal)}</td>
-                  <td class="ledger__interest">{fmtMoney(row.interest)}</td>
-                  <td>{fmtMoney(row.balance)}</td>
-                </tr>
-              ))
-            }
-            <tr class="ledger__gap"><td colspan="5">···</td></tr>
-            <tr>
-              <td>{crossover.month}</td>
-              <td>{fmtMoney(crossover.payment)}</td>
-              <td class="ledger__principal">{fmtMoney(crossover.principal)}</td>
-              <td class="ledger__interest">{fmtMoney(crossover.interest)}</td>
-              <td>{fmtMoney(crossover.balance)}</td>
-            </tr>
-            <tr class="ledger__gap"><td colspan="5">···</td></tr>
-            <tr>
-              <td>{lastRow.month}</td>
-              <td>{fmtMoney(lastRow.payment)}</td>
-              <td class="ledger__principal">{fmtMoney(lastRow.principal)}</td>
-              <td class="ledger__interest">{fmtMoney(lastRow.interest)}</td>
-              <td>{fmtMoney(lastRow.balance)}</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <th scope="row">Итого</th>
-              <td>{fmtMoney(sample.summary.totalPaid)}</td>
-              <td class="ledger__principal">{fmtMoney(sample.summary.totalPrincipal)}</td>
-              <td class="ledger__interest">{fmtMoney(sample.summary.totalInterest)}</td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
+        <div class="ledger__sheet">
+          <table class="ledger__table num">
+            <thead>
+              <tr
+                ><th scope="col">№</th><th scope="col">Платёж</th><th scope="col">Долг</th><th
+                  scope="col">Проценты</th
+                ><th scope="col">Остаток</th></tr
+              >
+            </thead>
+            <tbody>
+              {
+                sampleRows.map((row) => (
+                  <tr>
+                    <td>{row.month}</td>
+                    <td>{fmtMoney(row.payment)}</td>
+                    <td class="ledger__principal">{fmtMoney(row.principal)}</td>
+                    <td class="ledger__interest">{fmtMoney(row.interest)}</td>
+                    <td>{fmtMoney(row.balance)}</td>
+                  </tr>
+                ))
+              }
+              <tr class="ledger__gap"><td colspan="5">···</td></tr>
+              <tr>
+                <td>{crossover.month}</td>
+                <td>{fmtMoney(crossover.payment)}</td>
+                <td class="ledger__principal">{fmtMoney(crossover.principal)}</td>
+                <td class="ledger__interest">{fmtMoney(crossover.interest)}</td>
+                <td>{fmtMoney(crossover.balance)}</td>
+              </tr>
+              <tr class="ledger__gap"><td colspan="5">···</td></tr>
+              <tr>
+                <td>{lastRow.month}</td>
+                <td>{fmtMoney(lastRow.payment)}</td>
+                <td class="ledger__principal">{fmtMoney(lastRow.principal)}</td>
+                <td class="ledger__interest">{fmtMoney(lastRow.interest)}</td>
+                <td>{fmtMoney(lastRow.balance)}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row">Итого</th>
+                <td>{fmtMoney(sample.summary.totalPaid)}</td>
+                <td class="ledger__principal">{fmtMoney(sample.summary.totalPrincipal)}</td>
+                <td class="ledger__interest">{fmtMoney(sample.summary.totalInterest)}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
         <p class="ledger__note">
           С {crossover.month}-го месяца в платеже долга больше, чем процентов. Переплата — {
             fmtRate(sample.summary.overpaymentPercent)
@@ -195,19 +201,27 @@ const rate = DEFAULT_STATE.rates[0]!.ratePercent;
     gap: var(--space-3);
   }
 
+  /* Лист из расчётной книги: бумага с тенью, линейки строк, итог жирной чертой */
   .ledger {
     display: grid;
-    gap: var(--space-3);
-    padding: var(--space-5);
-    border: 1px solid var(--color-rule);
+    gap: var(--space-4);
+    padding: var(--space-5) var(--space-5) var(--space-4);
     border-radius: var(--radius-md);
     background: var(--color-paper);
+    box-shadow: var(--shadow-panel);
     min-width: 0;
   }
 
   .ledger__caption {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
+  }
+
+  /* На узком экране лист прокручивается по горизонтали, цифры не режутся */
+  .ledger__sheet {
+    overflow-x: auto;
+    margin-inline: calc(-1 * var(--space-5));
+    padding-inline: var(--space-5);
   }
 
   .ledger__table {
@@ -219,9 +233,20 @@ const rate = DEFAULT_STATE.rates[0]!.ratePercent;
   .ledger__table th,
   .ledger__table td {
     text-align: right;
-    padding: var(--space-2) var(--space-2);
+    padding: var(--space-2) var(--space-3);
     border-bottom: 1px solid var(--color-rule);
     white-space: nowrap;
+  }
+
+  .ledger__table th:first-child,
+  .ledger__table td:first-child {
+    padding-left: 0;
+    color: var(--color-text-muted);
+  }
+
+  .ledger__table th:last-child,
+  .ledger__table td:last-child {
+    padding-right: 0;
   }
 
   .ledger__table thead th {
@@ -233,15 +258,17 @@ const rate = DEFAULT_STATE.rates[0]!.ratePercent;
   .ledger__table tfoot th,
   .ledger__table tfoot td {
     border-bottom: 0;
-    border-top: 1px solid var(--color-rule-strong);
+    border-top: 2px solid var(--color-text);
     font-weight: 600;
+    color: var(--color-text);
   }
 
   .ledger__gap td {
     text-align: center;
-    color: var(--color-text-muted);
+    color: var(--color-rule-strong);
     padding-block: 0;
     line-height: 1;
+    letter-spacing: 0.2em;
   }
 
   .ledger__principal {
@@ -282,19 +309,24 @@ const rate = DEFAULT_STATE.rates[0]!.ratePercent;
     gap: var(--space-3);
     align-content: start;
     padding: var(--space-6);
-    border: 1px solid var(--color-rule);
-    border-left: 4px solid var(--color-ink);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     background: var(--color-paper);
+    box-shadow: var(--shadow-panel);
     text-decoration: none;
+    transition: background-color var(--duration-fast);
   }
 
-  .section-card:hover {
-    border-color: var(--color-ink);
+  .section-card:hover .section-card__title {
+    color: var(--color-ink);
   }
 
   .section-card--soon {
-    border-left-color: var(--color-rule-strong);
+    background: var(--color-paper-2);
+    box-shadow: none;
+    color: var(--color-text-muted);
+  }
+
+  .section-card--soon .section-card__cta {
     color: var(--color-text-muted);
   }
 

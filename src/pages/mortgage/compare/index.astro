@@ -91,9 +91,9 @@ const jsonLd = [
     display: grid;
     gap: var(--space-4);
     padding: var(--space-5);
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     background: var(--color-paper);
+    box-shadow: var(--shadow-panel);
     min-width: 0;
   }
 
@@ -126,9 +126,9 @@ const jsonLd = [
 
   .compare__table-wrap {
     overflow: auto;
-    border: 1px solid var(--color-rule);
     border-radius: var(--radius-md);
     background: var(--color-paper);
+    box-shadow: var(--shadow-panel);
   }
 
   .compare__table {
@@ -154,6 +154,12 @@ const jsonLd = [
   .compare__table tbody th {
     text-align: left;
     font-weight: 500;
+    color: var(--color-text-muted);
+  }
+
+  .compare__table tbody tr:last-child th,
+  .compare__table tbody tr:last-child td {
+    border-bottom: 0;
   }
 
   .compare__best {
