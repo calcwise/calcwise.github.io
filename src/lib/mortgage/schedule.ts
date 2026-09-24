@@ -38,7 +38,10 @@ import { plannedMonths, validateInput } from './validate.ts';
 const ZERO = new Big('0.000001');
 
 interface MonthPrepayment {
+  /** Суммы сверх планового платежа */
   amount: Big;
+  /** «Всего в месяц»: в долг идёт то, что остаётся от суммы после планового платежа */
+  budgets: Big[];
   reducePayment: boolean;
 }
 
@@ -46,8 +49,13 @@ interface MonthPrepayment {
 function expandPrepayments(prepayments: Prepayment[], total: number): Map<number, MonthPrepayment> {
   const byMonth = new Map<number, MonthPrepayment>();
   const add = (month: number, p: Prepayment) => {
-    const current = byMonth.get(month) ?? { amount: new Big(0), reducePayment: false };
-    current.amount = current.amount.plus(p.amount);
+    const current = byMonth.get(month) ?? {
+      amount: new Big(0),
+      budgets: [],
+      reducePayment: false,
+    };
+    if (p.kind === 'budget') current.budgets.push(new Big(p.amount));
+    else current.amount = current.amount.plus(p.amount);
     current.reducePayment = current.reducePayment || p.mode === 'payment';
     byMonth.set(month, current);
   };
@@ -175,8 +183,14 @@ export function buildSchedule(rawInput: ScheduleInput): ScheduleResult {
     let prepayment = new Big(0);
     const extra = prepayByMonth.get(month);
     if (extra && !isPlannedLast) {
+      /* «Всего в месяц»: сначала плановый платёж, остаток — в долг */
+      let wanted = extra.amount;
+      for (const budget of extra.budgets) {
+        const over = budget.minus(payment);
+        if (over.gt(0)) wanted = wanted.plus(over);
+      }
       const room = balance.minus(principal);
-      prepayment = extra.amount.gt(room) ? room : extra.amount;
+      prepayment = wanted.gt(room) ? room : wanted;
       if (prepayment.gt(0)) {
         if (extra.reducePayment) needRecalc = true;
         else {

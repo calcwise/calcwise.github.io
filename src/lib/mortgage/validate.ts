@@ -103,6 +103,12 @@ export function validateInput(
         'Сумма досрочного погашения должна быть больше 0',
       );
     }
+    if (p.kind !== undefined && p.kind !== 'extra' && p.kind !== 'budget') {
+      throw new ScheduleInputError(
+        `prepayments.${i}`,
+        `Неизвестный вид досрочного погашения: ${String(p.kind)}`,
+      );
+    }
     if (p.untilMonth !== undefined && (!isInt(p.untilMonth) || p.untilMonth < p.month)) {
       throw new ScheduleInputError(
         `prepayments.${i}`,

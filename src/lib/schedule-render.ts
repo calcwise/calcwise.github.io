@@ -40,7 +40,10 @@ export function describeState(state: CalculatorState, result?: ScheduleResult): 
           ? `ежемесячно с ${p.month}-го`
           : `ежегодно с ${p.month}-го`;
     const mode = p.mode === 'term' ? 'с сокращением срока' : 'с уменьшением платежа';
-    text += `, досрочно ${fmtMoney(p.amount)} ${when} ${mode}`;
+    text +=
+      p.kind === 'budget'
+        ? `, плачу всего ${fmtMoney(p.amount)} ${when} ${mode}`
+        : `, досрочно ${fmtMoney(p.amount)} ${when} ${mode}`;
   }
   if (state.interestInArrears) text += ', проценты за предыдущий месяц';
   const extra = extraOverpayment(state);

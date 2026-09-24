@@ -386,6 +386,58 @@ test('регулярная досрочка каждый месяц и кажд�
   assert.deepEqual(months, [12, 24, 36, 48, 60]);
 });
 
+test('досрочка «всего в месяц»: из суммы уходит плановый платёж, остаток гасит долг', () => {
+  const budget = 5_000;
+  const r = buildSchedule(
+    fixed(180_000, 15.4, 120, 'annuity', {
+      gracePeriods: [{ start: 1, months: 12 }],
+      prepayments: [{ month: 1, amount: budget, mode: 'term', repeat: 'monthly', kind: 'budget' }],
+    }),
+  );
+  /* Каждый месяц из кармана уходит ровно 5 000, пока есть что гасить */
+  for (const row of r.rows.slice(0, -1)) {
+    assert.equal(row.total, budget, `месяц ${row.month}`);
+    assert.equal(Math.round((row.payment + row.prepayment) * 100) / 100, budget);
+  }
+  /* В отсрочку плановый платёж — только проценты: в долг уходит 5 000 − 2 310 */
+  assert.equal(r.rows[0]!.interest, 2310);
+  assert.equal(r.rows[0]!.prepayment, 2690);
+  assert.equal(r.rows[0]!.balance, 177310);
+  /* Кредит закрывается раньше плана, последний платёж не больше бюджета */
+  assert.ok(r.rows.length < 120);
+  assert.ok(r.summary.lastPayment <= budget);
+  assert.equal(r.rows[r.rows.length - 1]!.balance, 0);
+});
+
+test('досрочка «всего в месяц» меньше планового платежа ничего не гасит', () => {
+  const plain = buildSchedule(fixed(1_000_000, 12, 60, 'annuity'));
+  const r = buildSchedule(
+    fixed(1_000_000, 12, 60, 'annuity', {
+      prepayments: [{ month: 1, amount: 10_000, mode: 'term', repeat: 'monthly', kind: 'budget' }],
+    }),
+  );
+  assert.ok(plain.rows[0]!.payment > 10_000);
+  assert.equal(r.summary.totalPrepaid, 0);
+  assert.equal(r.summary.totalInterest, plain.summary.totalInterest);
+});
+
+test('досрочка «всего в месяц» с уменьшением платежа: платёж падает, досрочка растёт, из кармана та же сумма', () => {
+  const r = buildSchedule(
+    fixed(1_000_000, 12, 60, 'annuity', {
+      prepayments: [
+        { month: 1, amount: 30_000, mode: 'payment', repeat: 'monthly', kind: 'budget' },
+      ],
+    }),
+  );
+  /* Из кармана каждый месяц уходит одно и то же, поэтому кредит закрывается раньше плана,
+     а режим меняет только раскладку: плановый платёж падает, досрочка растёт */
+  assert.ok(r.rows.length < 60);
+  assert.ok(r.rows[1]!.payment < r.rows[0]!.payment);
+  assert.ok(r.rows[1]!.prepayment > r.rows[0]!.prepayment);
+  for (const row of r.rows.slice(0, -1)) assert.equal(row.total, 30_000);
+  assert.equal(r.rows[r.rows.length - 1]!.balance, 0);
+});
+
 test('досрочка больше остатка закрывает кредит без переплаты', () => {
   const r = buildSchedule(
     fixed(100_000, 12, 12, 'annuity', {

@@ -74,7 +74,9 @@ what makes totals match bank statements (verified: 250 000 at 15.4% for 239 mont
 12-month grace period → overpayment 559 439,55). Payment is recomputed on the remaining
 balance and remaining paying months after: a rate-period change, the end of a grace period,
 a prepayment in `payment` mode. `term`-mode prepayments keep the payment; the loan simply ends
-earlier.
+earlier. A prepayment with `kind: 'budget'` is "всего в месяц": the amount includes the
+scheduled payment, and only the remainder above it (if any) goes to principal; URL flag `b` in
+the sixth position of `p=`.
 
 `interestInArrears` (URL `ia=1`) reproduces bank schedules that charge interest for the
 _previous_ month: row 1 carries interest on the full amount (the issuance month), row n carries

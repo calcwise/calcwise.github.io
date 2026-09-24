@@ -40,10 +40,15 @@
 
 .row--prepay {
   grid-template-areas:
-    'amount month remove'
+    'kind kind remove'
+    'amount month month'
     'mode mode mode'
     'repeat repeat repeat'
     'until until until';
+}
+
+.row__kind {
+  grid-area: kind;
 }
 
 .row__amount {
@@ -98,14 +103,14 @@
     grid-template-columns: minmax(0, 12rem) minmax(0, 12rem) var(--control-height);
   }
 
-  /* Досрочка в две линии: сумма, месяц и режим сверху; повтор и граница повторов снизу */
+  /* Досрочка в две линии: вид, сумма и месяц сверху; режим, повтор и граница повторов снизу */
   .row--prepay {
     grid-template-columns:
-      minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 1.3fr)
+      minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(0, 0.9fr)
       var(--control-height);
     grid-template-areas:
-      'amount month mode remove'
-      'repeat repeat until .';
+      'kind amount month remove'
+      'mode repeat until .';
   }
 }
 

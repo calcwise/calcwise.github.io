@@ -10,7 +10,8 @@
  *   ge=1            отсрочка продлевает срок
  *   ia=1            проценты платятся за предыдущий месяц
  *   x=3396.21       дополнительная переплата; без ключа — один платёж по умолчанию
- *   p=12:500000:t:o,1:5000:t:m:60   досрочки «месяц:сумма:режим:повтор[:до]»
+ *   p=12:500000:t:o,1:5000:t:m:60   досрочки «месяц:сумма:режим:повтор[:до[:b]]»
+ *                   b в шестой позиции — «всего в месяц»: сумма включает плановый платёж
  *   y=1             срок показан в годах
  */
 import type { Prepayment, ScheduleInput } from './mortgage/index.ts';
@@ -66,7 +67,9 @@ export function encodeState(state: CalculatorState): URLSearchParams {
       state.prepayments
         .map((p) => {
           const parts = [String(p.month), num(p.amount), MODE[p.mode], REPEAT[p.repeat]];
-          if (p.untilMonth !== undefined) parts.push(String(p.untilMonth));
+          if (p.untilMonth !== undefined || p.kind === 'budget')
+            parts.push(p.untilMonth === undefined ? '' : String(p.untilMonth));
+          if (p.kind === 'budget') parts.push('b');
           return parts.join(':');
         })
         .join(','),
@@ -144,14 +147,16 @@ export function decodeState(
       .split(',')
       .filter(Boolean)
       .map((chunk): Prepayment | null => {
-        const [month, amount, mode = 't', repeat = 'o', until] = chunk.split(':');
+        const [month, amount, mode = 't', repeat = 'o', until, kind] = chunk.split(':');
         const item: Prepayment = {
           month: Number(month),
           amount: Number(amount!.replace(',', '.')),
           mode: MODE_BACK[mode] ?? 'term',
           repeat: REPEAT_BACK[repeat] ?? 'once',
         };
-        if (until !== undefined && Number.isInteger(Number(until))) item.untilMonth = Number(until);
+        if (until !== undefined && until !== '' && Number.isInteger(Number(until)))
+          item.untilMonth = Number(until);
+        if (kind === 'b') item.kind = 'budget';
         return Number.isInteger(item.month) && item.month >= 1 && item.amount > 0 ? item : null;
       })
       .filter((x): x is Prepayment => x !== null);

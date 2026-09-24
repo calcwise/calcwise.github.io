@@ -194,13 +194,29 @@ function renderPrepaymentRow(list: HTMLElement, p: Prepayment, onChange: () => v
       el('span', { class: 'control__unit', text: '№' }),
     ]),
   ]);
-  const row = el('div', { class: 'row row--prepay', 'data-row': 'prepayment' }, [
-    labelled(
-      'Сумма',
+  const amountLabel = el('span', {
+    class: 'control__label',
+    text: p.kind === 'budget' ? 'Плачу в месяц' : 'Сумма сверх платежа',
+  });
+  const amount = el('label', { class: 'control row__amount' }, [
+    amountLabel,
+    el('span', { class: 'control__field' }, [
       numberInput({ value: formatAmountInput(String(p.amount)), 'data-key': 'amount' }),
-      undefined,
-      'row__amount',
-    ),
+    ]),
+  ]);
+  const kind = segmented(
+    'Как считать',
+    'kind',
+    [
+      ['extra', 'Сверх платежа'],
+      ['budget', 'Всего в месяц'],
+    ],
+    p.kind ?? 'extra',
+    'row__kind',
+  );
+  const row = el('div', { class: 'row row--prepay', 'data-row': 'prepayment' }, [
+    kind,
+    amount,
     month,
     segmented(
       'Что пересчитать',
@@ -223,8 +239,11 @@ function renderPrepaymentRow(list: HTMLElement, p: Prepayment, onChange: () => v
     const once = segValue(row, 'repeat') === 'once';
     until.classList.toggle('control--hidden', once);
     monthLabel.textContent = once ? 'В месяце' : 'С месяца';
+    amountLabel.textContent =
+      segValue(row, 'kind') === 'budget' ? 'Плачу в месяц' : 'Сумма сверх платежа';
   };
   repeat.addEventListener('change', sync);
+  kind.addEventListener('change', sync);
   sync();
   list.append(row);
 }
@@ -322,6 +341,7 @@ function readForm(refs: FormRefs): ReadResult {
       const sum = parseNumber(q<HTMLInputElement>(row, '[data-key="amount"]').value);
       const mode = (segValue(row, 'mode') || 'term') as Prepayment['mode'];
       const repeat = (segValue(row, 'repeat') || 'once') as Prepayment['repeat'];
+      const kind = segValue(row, 'kind') === 'budget' ? 'budget' : 'extra';
       const untilRaw = q<HTMLInputElement>(row, '[data-key="untilMonth"]').value.trim();
       if (!Number.isInteger(month) || month < 1)
         errors.push({
@@ -331,6 +351,7 @@ function readForm(refs: FormRefs): ReadResult {
       if (!Number.isFinite(sum) || sum <= 0)
         errors.push({ field: `prepayments.${i}`, message: 'Сумма досрочного погашения больше 0' });
       const item: Prepayment = { month, amount: sum, mode, repeat };
+      if (kind === 'budget') item.kind = kind;
       if (repeat !== 'once' && untilRaw !== '') {
         const untilMonth = parseInteger(untilRaw);
         if (!Number.isInteger(untilMonth) || untilMonth < month)
