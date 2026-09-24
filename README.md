@@ -88,6 +88,9 @@ npm run build && npm run check && npm run lint && npm test
 4. Там же на вкладке Variables добавить `DEPLOY_ENABLED` = `true`.
 5. Проверить `DEPLOY_PATH` в `production.yml`: путь к корню сайта на хостинге.
 6. Для превью: Settings → Pages → Source → GitHub Actions.
+7. Settings → Environments → `github-pages` → Deployment branches → добавить `dev`.
+   GitHub создаёт это окружение сам и разрешает деплой только с ветки по умолчанию, а
+   превью идёт с `dev`: без этого шага деплой отказывает с ошибкой protection rules.
 
 Если нужен ручной контроль над выкатом — Settings → Environments → `production` →
 Required reviewers: Actions соберёт сайт и остановится, ожидая подтверждения.

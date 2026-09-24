@@ -25,6 +25,10 @@
       `.github/workflows/production.yml` и `preview.yml`, настройка — в README.
 - [ ] SSH-доступ на хостинге, ключ деплоя, секреты `SSH_HOST`, `SSH_PORT`, `SSH_USER`,
       `SSH_PRIVATE_KEY`, переменная `DEPLOY_ENABLED`, проверить `DEPLOY_PATH` в workflow.
+- [ ] Settings → Pages → Source → GitHub Actions; затем Settings → Environments →
+      `github-pages` → Deployment branches → добавить `dev`, иначе превью с этой ветки
+      отказывается деплоиться. По желанию: `production` → Required reviewers, чтобы выкат
+      ждал подтверждения.
 - [ ] После первого выката проверить: `curl -I http://calcwise.by/` → 301 на https,
       `www` → без www, `/nope/` → 404, заголовки безопасности из `.htaccess` на месте.
 - [ ] Хостинг для `.by` у физического лица может быть где угодно; для юрлица или ИП сайт
