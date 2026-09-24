@@ -35,7 +35,7 @@ import {
   sensitivityHtml,
   statsHtml,
 } from './schedule-render.ts';
-import { DEFAULT_STATE, decodeState, encodeState } from './url-state.ts';
+import { DEFAULT_STATE, decodeState, encodeState, stateQuery } from './url-state.ts';
 import type { CalculatorState } from './url-state.ts';
 
 const STORAGE_KEY = 'calcwise:mortgage:v3';
@@ -664,7 +664,7 @@ export function initCalculator(root: HTMLElement): void {
     renderTargetTerm(root, state, applyTarget);
     if (!pageHasPreset) save(state);
     const url = new URL(location.href);
-    url.search = encodeState(state).toString();
+    url.search = stateQuery(state);
     history.replaceState(null, '', url);
   };
   const scheduleRecalc = debounce(recalc, 150);
@@ -748,7 +748,7 @@ export function initCalculator(root: HTMLElement): void {
   root.querySelector('[data-action="copy-link"]')?.addEventListener('click', async (e) => {
     const button = e.currentTarget as HTMLButtonElement;
     const url = new URL(location.href);
-    url.search = encodeState(current).toString();
+    url.search = stateQuery(current);
     try {
       await navigator.clipboard.writeText(url.toString());
       const label = button.textContent;
@@ -773,7 +773,7 @@ export function initCalculator(root: HTMLElement): void {
         const link = e.currentTarget as HTMLAnchorElement;
         const url = new URL(link.href);
         if (action === 'compare') url.searchParams.set('s', encodeState(current).toString());
-        else url.search = encodeState(current).toString();
+        else url.search = stateQuery(current);
         link.href = url.toString();
       });
   }

@@ -10,8 +10,10 @@
  *   ge=1            отсрочка продлевает срок
  *   ia=1            проценты платятся за предыдущий месяц
  *   x=3396.21       дополнительная переплата; без ключа — один платёж по умолчанию
- *   p=12:500000:t:o,1:5000:t:m:60   досрочки «месяц:сумма:режим:повтор[:до[:b]]»
- *                   b в шестой позиции — «всего в месяц»: сумма включает плановый платёж
+ *   p=12:500000:term:once,1:5000:term:monthly:60:budget
+ *                   досрочки «месяц:сумма:режим:повтор», дальше в любом порядке число —
+ *                   последний месяц повторов, слово budget — «всего в месяц» (сумма
+ *                   включает плановый платёж). Старые короткие формы t/p, o/m/y, b читаются.
  *   y=1             срок показан в годах
  */
 import type { Prepayment, ScheduleInput } from './mortgage/index.ts';
@@ -39,10 +41,20 @@ export const DEFAULT_STATE: CalculatorState = {
   termInYears: true,
 };
 
-const MODE = { term: 't', payment: 'p' } as const;
-const REPEAT = { once: 'o', monthly: 'm', yearly: 'y' } as const;
-const MODE_BACK: Record<string, Prepayment['mode']> = { t: 'term', p: 'payment' };
-const REPEAT_BACK: Record<string, Prepayment['repeat']> = { o: 'once', m: 'monthly', y: 'yearly' };
+const MODE_BACK: Record<string, Prepayment['mode']> = {
+  t: 'term',
+  p: 'payment',
+  term: 'term',
+  payment: 'payment',
+};
+const REPEAT_BACK: Record<string, Prepayment['repeat']> = {
+  o: 'once',
+  m: 'monthly',
+  y: 'yearly',
+  once: 'once',
+  monthly: 'monthly',
+  yearly: 'yearly',
+};
 
 const num = (n: number) => String(Math.round(n * 100) / 100);
 
@@ -66,10 +78,9 @@ export function encodeState(state: CalculatorState): URLSearchParams {
       'p',
       state.prepayments
         .map((p) => {
-          const parts = [String(p.month), num(p.amount), MODE[p.mode], REPEAT[p.repeat]];
-          if (p.untilMonth !== undefined || p.kind === 'budget')
-            parts.push(p.untilMonth === undefined ? '' : String(p.untilMonth));
-          if (p.kind === 'budget') parts.push('b');
+          const parts = [String(p.month), num(p.amount), p.mode, p.repeat];
+          if (p.untilMonth !== undefined) parts.push(String(p.untilMonth));
+          if (p.kind === 'budget') parts.push('budget');
           return parts.join(':');
         })
         .join(','),
@@ -147,16 +158,17 @@ export function decodeState(
       .split(',')
       .filter(Boolean)
       .map((chunk): Prepayment | null => {
-        const [month, amount, mode = 't', repeat = 'o', until, kind] = chunk.split(':');
+        const [month, amount, mode = 'term', repeat = 'once', ...tail] = chunk.split(':');
         const item: Prepayment = {
           month: Number(month),
           amount: Number(amount!.replace(',', '.')),
           mode: MODE_BACK[mode] ?? 'term',
           repeat: REPEAT_BACK[repeat] ?? 'once',
         };
-        if (until !== undefined && until !== '' && Number.isInteger(Number(until)))
-          item.untilMonth = Number(until);
-        if (kind === 'b') item.kind = 'budget';
+        for (const part of tail) {
+          if (/^\d+$/.test(part)) item.untilMonth = Number(part);
+          else if (part === 'budget' || part === 'b') item.kind = 'budget';
+        }
         return Number.isInteger(item.month) && item.month >= 1 && item.amount > 0 ? item : null;
       })
       .filter((x): x is Prepayment => x !== null);
@@ -170,9 +182,23 @@ export function decodeState(
   return state;
 }
 
+/**
+ * Строка запроса для адресной строки и ссылок. URLSearchParams кодирует двоеточия,
+ * запятые и @ как %3A, %2C и %40, хотя в запросе они разрешены как есть, — адрес
+ * должен читаться человеком, поэтому собираем строку сами.
+ */
+export function stateQuery(state: CalculatorState): string {
+  return Array.from(encodeState(state))
+    .map(
+      ([key, value]) =>
+        `${key}=${encodeURIComponent(value).replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%40/gi, '@')}`,
+    )
+    .join('&');
+}
+
 /** Ссылка на текущий расчёт для кнопки «Скопировать ссылку» */
 export function stateUrl(state: CalculatorState, base: string): string {
   const url = new URL(base);
-  url.search = encodeState(state).toString();
+  url.search = stateQuery(state);
   return url.toString();
 }
