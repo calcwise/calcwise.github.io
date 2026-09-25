@@ -76,14 +76,16 @@ what makes totals match bank statements (verified: 250 000 at 15.4% for 239 mont
 12-month grace period → overpayment 559 439,55). Payment is recomputed on the remaining
 balance and remaining paying months after: a rate-period change, the end of a grace period,
 a prepayment in `payment` mode. `term`-mode prepayments keep the payment; the loan simply ends
-earlier. A prepayment with `kind: 'budget'` is "всего в месяц": the amount includes the
+earlier; a later `payment`-mode prepayment keeps the term those `term`-mode prepayments already
+produced (`cutMonths`), it does not shorten it again. A prepayment with `kind: 'budget'` is "всего в месяц": the amount includes the
 scheduled payment, and only the remainder above it (if any) goes to principal; URL word `budget` in
 `prepay=`.
 
 `interestInArrears` (URL `interest=previous-month`) reproduces bank schedules that charge interest for the
 _previous_ month: row 1 carries interest on the full amount (the issuance month), row n carries
 interest on the opening balance of row n−1, and the last month's interest is outside the
-schedule. Principal parts and balances are unchanged. Verified against a real differentiated
+schedule. Principal parts and balances are unchanged. If a shifted interest row exceeds a freshly recomputed annuity (rate
+rise, big prepayment), that row pays interest only and the payment is recomputed next month. Verified against a real differentiated
 schedule: 250 000 at 15.4%, 239 months, 12-month grace → interest 407 444,20, total
 657 444,20. For annuity the payment is solved from the shifted recurrence so the debt closes
 exactly in term (`annuityPaymentArrears`); no bank annuity schedule of this kind has been

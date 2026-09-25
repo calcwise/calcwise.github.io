@@ -77,7 +77,7 @@ function expandPrepayments(prepayments: Prepayment[], total: number): Map<number
  */
 function impliedAnnuityTerm(balance: Big, rate: Big, payment: Big): number {
   if (payment.lte(0)) return 1;
-  if (rate.eq(0)) return Math.max(1, Math.ceil(Number(balance.div(payment).toString())));
+  if (rate.eq(0)) return Math.max(1, Math.ceil(Number(balance.div(payment).toString()) - 1e-9));
   const ratio = Number(balance.times(rate).div(payment).toString());
   if (ratio >= 1) return Number.MAX_SAFE_INTEGER;
   const n = -Math.log(1 - ratio) / Math.log(1 + Number(rate.toString()));
@@ -120,6 +120,9 @@ export function buildSchedule(rawInput: ScheduleInput): ScheduleResult {
   let needRecalc = true;
   /* После досрочки «в срок» оставшийся срок задаёт платёж, а не план */
   let termShortened = false;
+  /* Сколько платёжных месяцев плана уже срезали досрочки «в срок». Фиксируется, когда
+     следом идёт досрочка «уменьшить платёж»: она сохраняет срок, действовавший до неё */
+  let cutMonths = 0;
   let prevRatePercent: number | null = null;
   /* Для процентов «за предыдущий месяц»: остаток на начало прошлого месяца и его ставка.
      До первого платежа это сумма кредита и ставка первого месяца — месяц выдачи */
@@ -136,7 +139,7 @@ export function buildSchedule(rawInput: ScheduleInput): ScheduleResult {
     prevRatePercent = ratePercent;
 
     if (!isGrace && needRecalc) {
-      let remaining = payingLeft[month]!;
+      let remaining = Math.max(1, payingLeft[month]! - cutMonths);
       if (termShortened && segmentRate !== null) {
         remaining =
           input.type === 'annuity'
@@ -171,6 +174,14 @@ export function buildSchedule(rawInput: ScheduleInput): ScheduleResult {
       if (!graceFlags[month + 1] && !(termShortened && segmentRate !== null)) needRecalc = true;
     } else {
       principal = input.type === 'annuity' ? fixedPayment.minus(interest) : fixedPrincipal;
+      /* Со сдвигом процентов строка несёт проценты прошлого месяца — по старой ставке или
+         на остаток до досрочки — и после роста ставки или большой досрочки они могут быть
+         больше нового аннуитета. Тогда в этом месяце платятся только проценты, а платёж
+         пересчитывается со следующего, когда сдвинутые проценты догонят новые условия */
+      if (principal.lt(0) && input.type === 'annuity' && input.interestInArrears) {
+        principal = new Big(0);
+        needRecalc = true;
+      }
       if (principal.lt(0)) {
         throw new RangeError(
           `Месяц ${month}: платёж меньше начисленных процентов, долг не уменьшается. Проверьте ставку и срок.`,
@@ -192,8 +203,21 @@ export function buildSchedule(rawInput: ScheduleInput): ScheduleResult {
       const room = balance.minus(principal);
       prepayment = wanted.gt(room) ? room : wanted;
       if (prepayment.gt(0)) {
-        if (extra.reducePayment) needRecalc = true;
-        else {
+        if (extra.reducePayment) {
+          /* Если до этого срок уже сократили досрочки «в срок», фиксируем тот срок, который
+             они дали, — иначе пересчёт взял бы срок из старого платежа на уменьшенном
+             остатке и сократил бы его ещё раз вместо снижения платежа */
+          if (termShortened && segmentRate !== null) {
+            const rest = balance.minus(principal);
+            const implied =
+              input.type === 'annuity'
+                ? impliedAnnuityTerm(rest, segmentRate, fixedPayment)
+                : Math.max(1, Math.ceil(Number(rest.div(fixedPrincipal).toString()) - 1e-9));
+            cutMonths = Math.max(0, (payingLeft[month + 1] ?? 0) - implied);
+            termShortened = false;
+          }
+          needRecalc = true;
+        } else {
           /* Режим «срок»: платёж должен остаться таким, каким был бы без этой досрочки.
              Если платёжный сегмент ещё не начался (досрочка в отсрочку), фиксируем его
              сейчас — по остатку до досрочки и оставшимся платёжным месяцам. */

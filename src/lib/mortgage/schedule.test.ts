@@ -667,3 +667,85 @@ test('чувствительность к сроку: сроки короче о
   assert.ok(cells.every((c) => c.value > 18));
   assert.ok(cells.some((c) => c.isCurrent));
 });
+
+test('досрочка «уменьшить платёж» после «уменьшить срок» сохраняет уже сокращённый срок', () => {
+  const pp = (month: number, amount: number, mode: 'term' | 'payment') => ({
+    month,
+    amount,
+    mode,
+    repeat: 'once' as const,
+  });
+  /* Эталон независимой проверки: срок после первой досрочки 102 месяца, вторая снижает платёж */
+  const a = buildSchedule(
+    fixed(1_000_000, 12, 120, 'annuity', {
+      prepayments: [pp(12, 100_000, 'term'), pp(24, 100_000, 'payment')],
+    }),
+  );
+  assert.equal(a.rows.length, 102);
+  assert.equal(a.rows[24]!.payment, 12412.8);
+  assert.equal(a.summary.totalInterest, 512529.01);
+  assert.ok(a.rows[24]!.payment < a.rows[23]!.payment);
+
+  const d = buildSchedule(
+    fixed(1_200_000, 12, 120, 'diff', {
+      prepayments: [pp(12, 120_000, 'term'), pp(24, 120_000, 'payment')],
+    }),
+  );
+  assert.equal(d.rows.length, 108);
+  assert.equal(d.rows[24]!.principal, 8571.43);
+  assert.equal(d.rows[24]!.payment, 15771.43);
+});
+
+test('проценты за прошлый месяц: рост ставки и большая досрочка не ломают аннуитет', () => {
+  const inputs: ScheduleInput[] = [
+    fixed(1_000_000, 12, 240, 'annuity', {
+      interestInArrears: true,
+      rates: [
+        { fromMonth: 1, ratePercent: 12 },
+        { fromMonth: 13, ratePercent: 10 },
+      ],
+    }),
+    fixed(1_000_000, 10, 360, 'annuity', {
+      interestInArrears: true,
+      rates: [
+        { fromMonth: 1, ratePercent: 10 },
+        { fromMonth: 13, ratePercent: 20 },
+      ],
+    }),
+    fixed(1_000_000, 12, 360, 'annuity', {
+      interestInArrears: true,
+      prepayments: [{ month: 13, amount: 500_000, mode: 'payment', repeat: 'once' }],
+    }),
+  ];
+  for (const input of inputs) {
+    const r = buildSchedule(input);
+    assert.equal(r.rows.length, input.months);
+    assert.equal(r.rows.at(-1)!.balance, 0);
+    assert.ok(r.rows.every((row) => row.principal >= 0));
+    /* Не больше одной строки только с процентами, дальше платёж постоянный */
+    const idle = r.rows.findIndex((row) => !row.isGrace && row.principal === 0);
+    assert.ok(idle > 0);
+    const after = r.rows.slice(idle + 1, -1).map((row) => row.payment);
+    assert.ok(after.every((p) => p === after[0]));
+  }
+});
+
+test('досрочки при нулевой ставке: остаток, ровно кратный платежу, не добавляет лишний месяц', () => {
+  const r = buildSchedule({
+    amount: 1000,
+    months: 308,
+    type: 'annuity',
+    rates: [
+      { fromMonth: 1, ratePercent: 15.4 },
+      { fromMonth: 238, ratePercent: 0 },
+      { fromMonth: 292, ratePercent: 4.4 },
+    ],
+    prepayments: [
+      { month: 232, amount: 456.43, mode: 'term', repeat: 'yearly' },
+      { month: 240, amount: 1, mode: 'payment', repeat: 'monthly', untilMonth: 265 },
+    ],
+  });
+  /* После досрочки «платёж» в 240-м осталось 7 месяцев: 83,77 / 7 */
+  assert.equal(r.rows[240]!.payment, 11.97);
+  assert.equal(r.rows.at(-1)!.balance, 0);
+});
