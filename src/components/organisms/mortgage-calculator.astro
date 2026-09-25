@@ -9,8 +9,8 @@ import Analysis from '@/components/organisms/analysis.astro';
 import CalculatorForm from '@/components/organisms/calculator-form.astro';
 import ResultsSummary from '@/components/organisms/results-summary.astro';
 import ScheduleTable from '@/components/organisms/schedule-table.astro';
-import { buildSchedule } from '@/lib/mortgage';
-import { extraOverpayment, rowsCountText } from '@/lib/schedule-render';
+import { buildSchedule, prepaymentEffect } from '@/lib/mortgage';
+import { effectHtml, extraOverpayment, rowsCountText } from '@/lib/schedule-render';
 import type { CalculatorState } from '@/lib/url-state';
 
 interface Props {
@@ -24,6 +24,7 @@ const { initial, preset = false } = Astro.props;
    уже с цифрами и таблицей, скрипт лишь подхватывает форму. Без прыжков макета
    и с осмысленным содержимым без JavaScript. */
 const result = buildSchedule(initial);
+const effect = prepaymentEffect(result);
 ---
 
 <section
@@ -32,7 +33,7 @@ const result = buildSchedule(initial);
   data-initial={JSON.stringify(initial)}
   data-preset={preset ? '1' : '0'}
 >
-  <CalculatorForm />
+  <CalculatorForm initial={initial} result={result} />
 
   <p class="calc__empty" data-empty hidden>Исправьте значения в форме, чтобы увидеть график.</p>
 
@@ -49,15 +50,30 @@ const result = buildSchedule(initial);
         items={[
           { tone: 'principal', label: 'основной долг' },
           { tone: 'interest', label: 'проценты' },
-          { tone: 'grace', label: 'отсрочка', out: 'legend-grace', hidden: true },
-          { tone: 'prepay', label: 'досрочное погашение', out: 'legend-prepay', hidden: true },
+          {
+            tone: 'grace',
+            label: 'отсрочка',
+            out: 'legend-grace',
+            hidden: result.summary.graceMonths === 0,
+          },
+          {
+            tone: 'prepay',
+            label: 'досрочное погашение',
+            out: 'legend-prepay',
+            hidden: result.summary.totalPrepaid === 0,
+          },
         ]}
       />
     </section>
 
-    <div class="results__effect" data-out="effect" hidden></div>
+    <div
+      class="results__effect"
+      data-out="effect"
+      hidden={!effect}
+      set:html={effectHtml(result, effect)}
+    />
 
-    <Analysis initial={initial} result={result} />
+    <Analysis initial={initial} result={result} baseline={effect?.baseline} />
   </div>
 </section>
 

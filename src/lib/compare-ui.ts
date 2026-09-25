@@ -23,6 +23,8 @@ import { yTicks } from './charts.ts';
 const MAX = 3;
 const NAMES = ['А', 'Б', 'В'];
 
+let uid = 0;
+
 interface Scenario {
   state: CalculatorState;
   card: HTMLElement;
@@ -35,7 +37,9 @@ function scenarioCard(
   onRemove: () => void,
 ): HTMLElement {
   const grace = state.gracePeriods?.[0];
-  const extra = state.prepayments?.find((p) => p.repeat === 'monthly');
+  const extra = state.prepayments?.find((p) => p.repeat === 'monthly' && p.kind !== 'budget');
+  /* Имя группы не зависит от номера: после удаления сценария номера повторяются */
+  const group = `type-${++uid}`;
   const input = (attrs: Record<string, string | number | boolean | undefined>) =>
     el('input', {
       class: 'control__input num',
@@ -118,7 +122,7 @@ function scenarioCard(
           el('label', { class: 'segmented__option' }, [
             el('input', {
               type: 'radio',
-              name: `type-${index}`,
+              name: group,
               value: 'annuity',
               checked: state.type === 'annuity',
             }),
@@ -127,7 +131,7 @@ function scenarioCard(
           el('label', { class: 'segmented__option' }, [
             el('input', {
               type: 'radio',
-              name: `type-${index}`,
+              name: group,
               value: 'diff',
               checked: state.type === 'diff',
             }),
@@ -178,24 +182,54 @@ function readScenario(card: HTMLElement, base: CalculatorState): CalculatorState
   const rate2from = value('rate2from').trim();
   const rate2 = value('rate2').trim();
   if (!(amount > 0) || !(rate >= 0) || !(months >= 1)) return null;
-  const rates = [{ fromMonth: 1, ratePercent: rate }];
-  if (rate2from !== '' && rate2 !== '') {
-    const from = parseInteger(rate2from);
-    const percent = parseNumber(rate2);
-    if (from > 1 && percent >= 0) rates.push({ fromMonth: from, ratePercent: percent });
+  /* Поле правили, если его значение отличается от того, с которым карточка создана.
+     Нетронутые поля берём из исходного сценария целиком: в карточке есть не все
+     настройки калькулятора, и перенос «Сравнить» не должен их терять */
+  const edited = (key: string) => {
+    const input = q<HTMLInputElement>(card, `[data-key="${key}"]`);
+    return input.value !== input.defaultValue;
+  };
+
+  let rates = [{ fromMonth: 1, ratePercent: rate }, ...base.rates.slice(1)];
+  if (edited('rate2from') || edited('rate2')) {
+    const rest = base.rates.slice(2);
+    rates = [{ fromMonth: 1, ratePercent: rate }];
+    if (rate2from !== '' && rate2 !== '') {
+      const from = parseInteger(rate2from);
+      const percent = parseNumber(rate2);
+      if (from > 1 && percent >= 0) rates.push({ fromMonth: from, ratePercent: percent });
+    }
+    for (const r of rest) if (!rates.some((x) => x.fromMonth === r.fromMonth)) rates.push(r);
+    rates.sort((a, b) => a.fromMonth - b.fromMonth);
   }
-  const gracePeriods = graceMonths > 0 ? [{ start: 1, months: graceMonths }] : [];
-  const prepayments =
-    extra > 0
-      ? [
-          {
-            month: graceMonths + 1,
-            amount: extra,
-            mode: 'term' as const,
-            repeat: 'monthly' as const,
-          },
-        ]
-      : [];
+
+  const gracePeriods = edited('grace')
+    ? graceMonths > 0
+      ? [{ start: 1, months: graceMonths }]
+      : []
+    : (base.gracePeriods ?? []);
+
+  /* Карточка показывает только ежемесячную доплату; остальные досрочки не трогаем */
+  const monthlyExtra = (base.prepayments ?? []).find(
+    (p) => p.repeat === 'monthly' && p.kind !== 'budget',
+  );
+  let prepayments = base.prepayments ?? [];
+  if (edited('extra')) {
+    prepayments = prepayments.filter((p) => p !== monthlyExtra);
+    if (extra > 0) {
+      prepayments = [
+        ...prepayments,
+        monthlyExtra
+          ? { ...monthlyExtra, amount: extra }
+          : {
+              month: (gracePeriods[0]?.months ?? 0) + 1,
+              amount: extra,
+              mode: 'term' as const,
+              repeat: 'monthly' as const,
+            },
+      ];
+    }
+  }
   const scenario: CalculatorState = {
     ...base,
     amount,
@@ -421,7 +455,12 @@ export function initCompare(root: HTMLElement): void {
     list.append(scenario.card);
   };
 
-  const fromUrl = decodeScenarios(new URLSearchParams(location.search), MAX);
+  let fromUrl: CalculatorState[] = [];
+  try {
+    fromUrl = decodeScenarios(new URLSearchParams(location.search), MAX);
+  } catch {
+    fromUrl = [];
+  }
   if (fromUrl.length) {
     fromUrl.forEach((state) => add(state));
     if (fromUrl.length === 1) {

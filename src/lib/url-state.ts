@@ -68,6 +68,8 @@ const REPEAT_BACK: Record<string, Prepayment['repeat']> = {
 };
 
 const num = (n: number) => String(Math.round(n * 100) / 100);
+/* Ставку не режем до сотых: 13,125% должна вернуться по ссылке той же, иначе график другой */
+const rateNum = (n: number) => String(Math.round(n * 10_000) / 10_000);
 
 export function encodeState(state: CalculatorState): URLSearchParams {
   const params = new URLSearchParams();
@@ -78,8 +80,8 @@ export function encodeState(state: CalculatorState): URLSearchParams {
   params.set(
     'rate',
     state.rates.length === 1 && state.rates[0]!.fromMonth === 1
-      ? num(state.rates[0]!.ratePercent)
-      : state.rates.map((r) => `${num(r.ratePercent)}@${r.fromMonth}`).join(','),
+      ? rateNum(state.rates[0]!.ratePercent)
+      : state.rates.map((r) => `${rateNum(r.ratePercent)}@${r.fromMonth}`).join(','),
   );
   if (state.gracePeriods?.length) {
     params.set('grace', state.gracePeriods.map((g) => `${g.start}x${g.months}`).join(','));
@@ -173,9 +175,11 @@ export function decodeState(
       .filter(Boolean)
       .map((chunk): Prepayment | null => {
         const [month, amount, mode = 'term', repeat = 'once', ...tail] = chunk.split(':');
+        /* Битая досрочка без суммы молча отбрасывается, как и битая отсрочка */
+        if (amount === undefined) return null;
         const item: Prepayment = {
           month: Number(month),
-          amount: Number(amount!.replace(',', '.')),
+          amount: Number(amount.replace(',', '.')),
           mode: MODE_BACK[mode] ?? 'term',
           repeat: REPEAT_BACK[repeat] ?? 'once',
         };

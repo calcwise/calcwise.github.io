@@ -91,3 +91,27 @@ test('ссылка на расчёт: путь страницы сохраняе
     'https://calcwise.by/mortgage/?amount=250000&months=240&type=annuity&rate=15.4#top',
   );
 });
+
+test('битые досрочки и ставки в адресе не ломают разбор', () => {
+  const s = decodeState(new URLSearchParams('amount=250000&months=240&prepay=12,5:1000:term:once'));
+  assert.deepEqual(s.prepayments, [{ month: 5, amount: 1000, mode: 'term', repeat: 'once' }]);
+  const r = decodeState(new URLSearchParams('amount=1&months=12&rate=abc'));
+  assert.equal(r.rates[0]!.ratePercent, DEFAULT_STATE.rates[0]!.ratePercent);
+});
+
+test('ставка с тремя знаками возвращается по ссылке без округления', () => {
+  const s = { ...DEFAULT_STATE, rates: [{ fromMonth: 1, ratePercent: 13.125 }] };
+  const back = decodeState(new URLSearchParams(stateQuery(s)));
+  assert.equal(back.rates[0]!.ratePercent, 13.125);
+});
+
+test('пустые отсрочка и досрочки в адресе не берутся из пресета страницы', () => {
+  const preset = { ...DEFAULT_STATE, gracePeriods: [{ start: 1, months: 12 }] };
+  /* Калькулятор раскодирует адрес поверх значений по умолчанию, а не пресета */
+  const s = decodeState(new URLSearchParams('amount=250000&months=240&rate=15.4'), DEFAULT_STATE);
+  assert.deepEqual(s.gracePeriods, []);
+  assert.deepEqual(
+    decodeState(new URLSearchParams('amount=1'), preset).gracePeriods,
+    preset.gracePeriods,
+  );
+});

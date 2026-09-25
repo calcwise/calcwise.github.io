@@ -14,9 +14,14 @@ import {
 import { DEFAULT_STATE, decodeState } from './url-state.ts';
 
 export function initSchedulePage(root: HTMLElement): void {
-  const state = decodeState(new URLSearchParams(location.search), DEFAULT_STATE);
   const error = q(root, '[data-error]');
   const content = q(root, '[data-content]');
+  let state = DEFAULT_STATE;
+  try {
+    state = decodeState(new URLSearchParams(location.search), DEFAULT_STATE);
+  } catch {
+    /* Битый адрес — показываем расчёт по умолчанию, а не пустую страницу */
+  }
   try {
     const result = buildSchedule(state);
     renderKeyFigures(root, state, result);

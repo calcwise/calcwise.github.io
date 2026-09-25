@@ -69,6 +69,11 @@
   border-bottom-color: var(--color-rule-strong);
 }
 
+/* Нулевая строка — доплата сверх графика, введённая человеком */
+.table--schedule .schedule__row--extra {
+  background: var(--color-paper-2);
+}
+
 .table--schedule .schedule__row--grace {
   background: var(--color-grace-soft);
 }

@@ -14,6 +14,8 @@ interface Props {
   size?: 'md' | 'lg';
   inputmode?: 'decimal' | 'numeric';
   placeholder?: string;
+  /** Стартовое значение из сборки: то же, что потом подставит скрипт */
+  value?: string;
   /** id подписи для варианта с переключателем внутри */
   id?: string;
   class?: string;
@@ -26,6 +28,7 @@ const {
   size = 'md',
   inputmode = 'decimal',
   placeholder,
+  value,
   id,
   class: className,
   ...rest
@@ -47,6 +50,7 @@ const inputClasses = ['control__input', 'num', { 'control__input--lg': size === 
           data-field={field}
           inputmode={inputmode}
           placeholder={placeholder}
+          value={value}
           aria-labelledby={labelId}
           {...rest}
         />
@@ -62,6 +66,7 @@ const inputClasses = ['control__input', 'num', { 'control__input--lg': size === 
           data-field={field}
           inputmode={inputmode}
           placeholder={placeholder}
+          value={value}
           {...rest}
         />
         {unit && <span class="control__unit">{unit}</span>}

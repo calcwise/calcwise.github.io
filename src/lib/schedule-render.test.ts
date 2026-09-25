@@ -3,8 +3,14 @@ import assert from 'node:assert/strict';
 
 import { buildSchedule, rateSensitivity } from './mortgage/index.ts';
 import type { ScheduleInput } from './mortgage/index.ts';
+import { prepaymentEffect } from './mortgage/index.ts';
 import {
+  EXTRA_HINT_EMPTY,
   closingRowHtml,
+  effectHtml,
+  extraHintText,
+  formValues,
+  hasExtraConditions,
   describeState,
   extraOverpayment,
   figureText,
@@ -148,4 +154,57 @@ test('условия одной фразой: все виды настроек �
     'дополнительная переплата 3 396,21',
   ])
     assert.ok(described.includes(part), `нет «${part}» в «${described}»`);
+});
+
+test('значения формы при сборке: те же, что подставит скрипт', () => {
+  const r = buildSchedule(bank);
+  const v = formValues(state({ termInYears: false }), r);
+  assert.deepEqual(
+    { ...v, amount: plain(v.amount), payment: plain(v.payment) },
+    {
+      amount: '250 000',
+      rate: '15,4',
+      term: '239',
+      unit: 'months',
+      payment: '3 396,21',
+      paymentLabel: 'Платёж в месяц',
+    },
+  );
+  /* Годы, но срок не целый: введённый срок — месяцами, подобранный под платёж — дробью */
+  assert.equal(formValues(state(), r).unit, 'months');
+  const byPayment = formValues(state({ targetPayment: 3400 }), r);
+  assert.deepEqual(
+    [byPayment.unit, byPayment.term, plain(byPayment.payment)],
+    ['years', '19,92', '3 400'],
+  );
+  assert.equal(formValues(state({ type: 'diff' }), null).paymentLabel, 'Первый платёж');
+  assert.equal(formValues(state(), null).payment, '');
+});
+
+test('дополнительные условия: подсказка и раскрытие', () => {
+  const empty = state({ gracePeriods: [] });
+  assert.equal(hasExtraConditions(empty), false);
+  assert.equal(extraHintText(empty), EXTRA_HINT_EMPTY);
+  assert.equal(hasExtraConditions(state()), true);
+  const prepayments = [1, 2, 3, 4, 5].map((month) => ({
+    month,
+    amount: 1,
+    mode: 'term' as const,
+    repeat: 'once' as const,
+  }));
+  assert.equal(
+    plain(extraHintText(state({ prepayments, extraOverpayment: 777 }))),
+    'отсрочка 12 мес., 5 досрочных погашений, переплата 777,00',
+  );
+});
+
+test('блок эффекта досрочек: пусто без досрочек, экономия и срок с ними', () => {
+  const plainResult = buildSchedule(bank);
+  assert.equal(effectHtml(plainResult, prepaymentEffect(plainResult)), '');
+  const r = buildSchedule({
+    ...bank,
+    prepayments: [{ month: 13, amount: 50_000, mode: 'term', repeat: 'once' }],
+  });
+  const html = text(effectHtml(r, prepaymentEffect(r)));
+  assert.ok(html.includes('Экономия на процентах') && html.includes('Кредит закрыт раньше'), html);
 });

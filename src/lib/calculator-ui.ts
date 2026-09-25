@@ -29,13 +29,16 @@ import {
 } from './mortgage/index.ts';
 import type { GracePeriod, Prepayment, RatePeriod, ScheduleResult } from './mortgage/index.ts';
 import {
+  effectHtml,
+  extraHintText,
+  formValues,
   extraOverpayment,
+  hasExtraConditions,
   renderKeyFigures,
   suggestedExtra,
   renderScheduleTable,
   renderYearsTable,
   sensitivityHtml,
-  statsHtml,
 } from './schedule-render.ts';
 import {
   DEFAULT_STATE,
@@ -80,12 +83,28 @@ interface FormRefs {
 const paymentLabelText = (type: 'annuity' | 'diff') =>
   type === 'diff' ? 'Первый платёж' : 'Платёж в месяц';
 
-/** Срок в поле в выбранных единицах; нецелое число лет переводит поле в месяцы */
+/**
+ * Срок в поле в выбранных единицах. Единицу выбирает человек: подобранный срок
+ * не в целых годах показывается дробью («10,67»), а не переключает поле на месяцы —
+ * иначе выбрать «лет», пока ведёт платёж, было бы нельзя
+ */
 function showTerm(refs: FormRefs, months: number): void {
-  if (refs.termUnit() === 'years' && months % 12 !== 0) {
-    q<HTMLInputElement>(refs.form, 'input[name="term-unit"][value="months"]').checked = true;
+  refs.term.value =
+    refs.termUnit() === 'years'
+      ? String(Math.round((months / 12) * 100) / 100).replace('.', ',')
+      : String(months);
+}
+
+/* Ссылки «График отдельно» и «Сравнить» всегда несут текущий расчёт: их открывают
+   и средней кнопкой, и через «Открыть в новой вкладке», без события click */
+function updateActionLinks(root: HTMLElement, state: CalculatorState): void {
+  for (const action of ['compare', 'schedule'] as const) {
+    const link = root.querySelector<HTMLAnchorElement>(`[data-action="${action}"]`);
+    if (!link) continue;
+    const url = new URL(link.href);
+    url.search = action === 'compare' ? scenariosQuery([state]) : stateQuery(state);
+    link.href = url.toString();
   }
-  refs.term.value = refs.termUnit() === 'years' ? String(months / 12) : String(months);
 }
 
 interface FieldError {
@@ -274,17 +293,20 @@ function renderPrepaymentRow(list: HTMLElement, p: Prepayment, onChange: () => v
 }
 
 function fillForm(refs: FormRefs, state: CalculatorState, onChange: () => void): void {
-  refs.amount.value = formatAmountInput(String(state.amount));
-  refs.rate.value = fmtRate(state.rates[0]!.ratePercent);
-  const wholeYears = state.months % 12 === 0;
-  const inYears = state.termInYears && wholeYears;
-  const unit = inYears ? 'years' : 'months';
-  q<HTMLInputElement>(refs.form, `input[name="term-unit"][value="${unit}"]`).checked = true;
-  refs.term.value = inYears ? String(state.months / 12) : String(state.months);
+  let result: ScheduleResult | null = null;
+  try {
+    result = buildSchedule(state);
+  } catch {
+    result = null;
+  }
+  const values = formValues(state, result);
+  refs.amount.value = values.amount;
+  refs.rate.value = values.rate;
+  q<HTMLInputElement>(refs.form, `input[name="term-unit"][value="${values.unit}"]`).checked = true;
+  refs.term.value = values.term;
   refs.setDriver(state.targetPayment !== undefined ? 'payment' : 'term');
-  refs.payment.value =
-    state.targetPayment !== undefined ? formatAmountInput(String(state.targetPayment)) : '';
-  refs.paymentLabel.textContent = paymentLabelText(state.type);
+  refs.payment.value = values.payment;
+  refs.paymentLabel.textContent = values.paymentLabel;
   q<HTMLInputElement>(refs.form, `input[name="type"][value="${state.type}"]`).checked = true;
 
   clear(refs.rates);
@@ -298,13 +320,7 @@ function fillForm(refs: FormRefs, state: CalculatorState, onChange: () => void):
   clear(refs.prepayments);
   (state.prepayments ?? []).forEach((p) => renderPrepaymentRow(refs.prepayments, p, onChange));
 
-  const hasExtra =
-    state.rates.length > 1 ||
-    (state.gracePeriods?.length ?? 0) > 0 ||
-    (state.prepayments?.length ?? 0) > 0 ||
-    Boolean(state.interestInArrears) ||
-    state.extraOverpayment !== undefined;
-  if (hasExtra) refs.extra.open = true;
+  if (hasExtraConditions(state)) refs.extra.open = true;
 }
 
 interface ReadResult {
@@ -424,6 +440,16 @@ function readForm(refs: FormRefs): ReadResult {
   /* Расчёт по платежу: срок подбирается, когда остальные условия уже прочитаны без ошибок */
   if (targetPayment !== undefined && errors.length === 0) {
     state.targetPayment = targetPayment;
+    /* Сначала обычная проверка условий на самом длинном сроке: ошибка в строке ставки
+       или отсрочки должна показаться у неё, а не выглядеть как «платёж слишком мал» */
+    try {
+      buildSchedule({ ...state, months: 600 });
+    } catch (e) {
+      if (e instanceof ScheduleInputError && e.field !== 'months') {
+        errors.push({ field: e.field, message: e.message });
+        return { state, errors };
+      }
+    }
     const found = termForPayment(state, targetPayment);
     if (found === null) {
       /* Проценты за месяц на всю сумму по самой высокой ставке: меньше них платить нельзя */
@@ -479,21 +505,7 @@ function renderSummary(root: HTMLElement, state: CalculatorState, r: ScheduleRes
   q(root, '[data-out="legend-grace"]').hidden = r.summary.graceMonths === 0;
   q(root, '[data-out="legend-prepay"]').hidden = r.summary.totalPrepaid === 0;
 
-  const hint = q(root, '[data-out="extra-hint"]');
-  const extras: string[] = [];
-  const periods = state.rates.length - 1;
-  if (periods > 0) extras.push(`${periods} ${periods === 1 ? 'период ставки' : 'периода ставки'}`);
-  if (state.gracePeriods?.length)
-    extras.push(`отсрочка ${state.gracePeriods.reduce((a, g) => a + g.months, 0)} мес.`);
-  const prepays = state.prepayments?.length ?? 0;
-  if (prepays)
-    extras.push(`${prepays} ${prepays === 1 ? 'досрочное погашение' : 'досрочных погашения'}`);
-  if (state.interestInArrears) extras.push('проценты за предыдущий месяц');
-  if (state.extraOverpayment !== undefined)
-    extras.push(`переплата ${formatAmountInput(String(state.extraOverpayment))}`);
-  hint.textContent = extras.length
-    ? extras.join(', ')
-    : 'ставка по периодам, отсрочка, досрочные погашения';
+  q(root, '[data-out="extra-hint"]').textContent = extraHintText(state);
 }
 
 function renderEffect(root: HTMLElement, r: ScheduleResult): ReturnType<typeof prepaymentEffect> {
@@ -504,26 +516,7 @@ function renderEffect(root: HTMLElement, r: ScheduleResult): ReturnType<typeof p
     box.innerHTML = '';
     return null;
   }
-  box.innerHTML =
-    '<h2 class="results__heading">Эффект досрочных погашений</h2>' +
-    `<dl class="stats">${statsHtml([
-      {
-        label: 'Экономия на процентах',
-        value: fmtMoney(effect.interestSaved),
-        note: `без досрочек переплата ${fmtMoney(effect.baseline.summary.totalInterest)}`,
-        tone: 'interest',
-      },
-      effect.monthsSaved > 0
-        ? {
-            label: 'Кредит закрыт раньше',
-            value: `на ${fmtMonthsAsYears(effect.monthsSaved)}`,
-            note: `за ${fmtMonthsAsYears(r.summary.actualMonths)} вместо ${fmtMonthsAsYears(effect.baseline.summary.actualMonths)}`,
-          }
-        : null,
-      effect.paymentReduced > 0
-        ? { label: 'Платёж снижен', value: `на ${fmtMoney(effect.paymentReduced)}` }
-        : null,
-    ])}</dl>`;
+  box.innerHTML = effectHtml(r, effect);
   return effect;
 }
 
@@ -678,9 +671,16 @@ export function initCalculator(root: HTMLElement): void {
     fromUrl.has(key),
   );
   const pageHasPreset = root.dataset.preset === '1';
-  const initial = hasUrlState
-    ? decodeState(fromUrl, pageInitial)
-    : (!pageHasPreset && loadSaved()) || pageInitial;
+  /* Адрес раскодируем поверх значений по умолчанию, а не пресета страницы: иначе
+     удалённые человеком отсрочка или досрочка пресета вернулись бы после перезагрузки */
+  let initial: CalculatorState;
+  try {
+    initial = hasUrlState
+      ? decodeState(fromUrl, DEFAULT_STATE)
+      : (!pageHasPreset && loadSaved()) || pageInitial;
+  } catch {
+    initial = pageInitial;
+  }
 
   let current: CalculatorState = initial;
 
@@ -731,6 +731,7 @@ export function initCalculator(root: HTMLElement): void {
     const url = new URL(location.href);
     url.search = stateQuery(state);
     history.replaceState(null, '', url);
+    updateActionLinks(root, state);
   };
   const scheduleRecalc = debounce(recalc, 150);
 
@@ -741,6 +742,7 @@ export function initCalculator(root: HTMLElement): void {
   /* Лишний символ в поле не появляется; подсказка висит пару секунд и уходит сама */
   guardNumericInputs(form, (input, message) => {
     const control = input.closest('.control') ?? input.closest('[data-row]');
+    const alreadyInvalid = control?.classList.contains('control--invalid') ?? false;
     control?.classList.add('control--invalid');
     const duplicate = qa(refs.errors, 'li').find((li) => li.textContent === message);
     const item = duplicate ?? el('li', { text: message });
@@ -748,7 +750,7 @@ export function initCalculator(root: HTMLElement): void {
     refs.errors.hidden = false;
     setTimeout(() => {
       item.remove();
-      control?.classList.remove('control--invalid');
+      if (!alreadyInvalid) control?.classList.remove('control--invalid');
       refs.errors.hidden = refs.errors.children.length === 0;
     }, 2000);
   });
@@ -783,13 +785,22 @@ export function initCalculator(root: HTMLElement): void {
       const total = plannedMonths(current);
       let list = refs.prepayments;
       if (kind === 'rates') {
-        const last = current.rates[current.rates.length - 1]!;
-        renderRateRow(
-          refs.rates,
-          { fromMonth: Math.min(total, last.fromMonth + 12), ratePercent: last.ratePercent },
-          scheduleRecalc,
-        );
+        /* Берём строки из формы, а не последний расчёт: двойной клик быстрее пересчёта
+           не должен давать две ставки с одного месяца */
+        const used = [
+          1,
+          ...qa<HTMLInputElement>(refs.rates, '[data-key="fromMonth"]').map((i) =>
+            parseInteger(i.value),
+          ),
+        ].filter((m) => Number.isInteger(m));
+        const from = Math.min(total, Math.max(...used) + 12);
         list = refs.rates;
+        if (used.includes(from)) {
+          list.lastElementChild?.querySelector<HTMLInputElement>('input')?.focus();
+          return;
+        }
+        const lastRate = current.rates[current.rates.length - 1]!.ratePercent;
+        renderRateRow(refs.rates, { fromMonth: from, ratePercent: lastRate }, scheduleRecalc);
       } else if (kind === 'grace') {
         const lastEnd = (current.gracePeriods ?? []).reduce(
           (m, g) => Math.max(m, g.start + g.months),
@@ -808,7 +819,10 @@ export function initCalculator(root: HTMLElement): void {
           scheduleRecalc,
         );
       }
-      list.lastElementChild?.querySelector<HTMLInputElement>('input')?.focus();
+      /* Фокус — в первое поле ввода строки, а не в скрытую радиокнопку */
+      list.lastElementChild
+        ?.querySelector<HTMLInputElement>('input:not([type="radio"]):not([type="checkbox"])')
+        ?.focus();
       scheduleRecalc();
     }),
   );
@@ -837,16 +851,6 @@ export function initCalculator(root: HTMLElement): void {
     );
   });
   root.querySelector('[data-action="print"]')?.addEventListener('click', () => window.print());
-  for (const action of ['compare', 'schedule']) {
-    root
-      .querySelector<HTMLAnchorElement>(`[data-action="${action}"]`)
-      ?.addEventListener('click', (e) => {
-        const link = e.currentTarget as HTMLAnchorElement;
-        const url = new URL(link.href);
-        url.search = action === 'compare' ? scenariosQuery([current]) : stateQuery(current);
-        link.href = url.toString();
-      });
-  }
   qa<HTMLInputElement>(root, 'input[name="target-unit"]').forEach((radio) =>
     radio.addEventListener('change', () => renderTargetTerm(root, current, applyTarget)),
   );

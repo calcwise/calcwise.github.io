@@ -4,9 +4,17 @@
  * состояния, чтобы страница не прыгала при загрузке) и для браузера (innerHTML
  * при пересчёте). В строки попадают только числа и заранее известные подписи.
  */
-import { fmtInt, fmtMoney, fmtMonths, fmtMonthsAsYears, fmtRate, plural } from './format.ts';
-import { prepaymentEffect, yearSummaries } from './mortgage/index.ts';
-import type { ScheduleResult, SensitivityCell } from './mortgage/index.ts';
+import {
+  fmtInt,
+  fmtMoney,
+  fmtMonths,
+  fmtMonthsAsYears,
+  fmtRate,
+  formatAmountInput,
+  plural,
+} from './format.ts';
+import { maxPlannedPayment, prepaymentEffect, yearSummaries } from './mortgage/index.ts';
+import type { PrepaymentEffect, ScheduleResult, SensitivityCell } from './mortgage/index.ts';
 import type { CalculatorState } from './url-state.ts';
 
 const escape = (s: string) =>
@@ -67,6 +75,97 @@ export function suggestedExtra(state: CalculatorState, result: ScheduleResult): 
 }
 
 const plusExtra = (value: number, extra: number): number => Math.round((value + extra) * 100) / 100;
+
+/** Значения главных полей формы: одни и те же при сборке и после загрузки скрипта */
+export interface FormValues {
+  amount: string;
+  rate: string;
+  term: string;
+  unit: 'years' | 'months';
+  payment: string;
+  paymentLabel: string;
+}
+
+export function formValues(state: CalculatorState, result: ScheduleResult | null): FormValues {
+  const byPayment = state.targetPayment !== undefined;
+  /* Срок не в целых годах показываем месяцами, если его ввёл человек; если его подобрали
+     под платёж, уважаем выбранные годы и показываем дробью */
+  const unit = state.termInYears && (byPayment || state.months % 12 === 0) ? 'years' : 'months';
+  return {
+    amount: formatAmountInput(String(state.amount)),
+    rate: fmtRate(state.rates[0]!.ratePercent),
+    term:
+      unit === 'years'
+        ? String(Math.round((state.months / 12) * 100) / 100).replace('.', ',')
+        : String(state.months),
+    unit,
+    payment: byPayment
+      ? formatAmountInput(String(state.targetPayment))
+      : result
+        ? formatAmountInput(maxPlannedPayment(result).toFixed(2))
+        : '',
+    paymentLabel: state.type === 'diff' ? 'Первый платёж' : 'Платёж в месяц',
+  };
+}
+
+/** Подсказка у «Дополнительных условий» по умолчанию, пока ничего не задано */
+export const EXTRA_HINT_EMPTY =
+  'ставка по периодам, отсрочка, досрочные погашения, порядок процентов, переплата';
+
+/** Заданы ли дополнительные условия: тогда блок с ними раскрыт */
+export function hasExtraConditions(state: CalculatorState): boolean {
+  return (
+    state.rates.length > 1 ||
+    (state.gracePeriods?.length ?? 0) > 0 ||
+    (state.prepayments?.length ?? 0) > 0 ||
+    Boolean(state.interestInArrears) ||
+    state.extraOverpayment !== undefined
+  );
+}
+
+/** Подсказка у «Дополнительных условий»: что уже задано, одной строкой */
+export function extraHintText(state: CalculatorState): string {
+  const extras: string[] = [];
+  const periods = state.rates.length - 1;
+  if (periods > 0) extras.push(`${periods} ${periods === 1 ? 'период ставки' : 'периода ставки'}`);
+  if (state.gracePeriods?.length)
+    extras.push(`отсрочка ${state.gracePeriods.reduce((a, g) => a + g.months, 0)} мес.`);
+  const prepays = state.prepayments?.length ?? 0;
+  if (prepays)
+    extras.push(
+      `${prepays} ${plural(prepays, 'досрочное погашение', 'досрочных погашения', 'досрочных погашений')}`,
+    );
+  if (state.interestInArrears) extras.push('проценты за предыдущий месяц');
+  if (state.extraOverpayment !== undefined)
+    extras.push(`переплата ${fmtMoney(state.extraOverpayment)}`);
+  return extras.length ? extras.join(', ') : EXTRA_HINT_EMPTY;
+}
+
+/** Блок «Эффект досрочных погашений»: одинаковый при сборке и в браузере */
+export function effectHtml(r: ScheduleResult, effect: PrepaymentEffect | null): string {
+  if (!effect) return '';
+  return (
+    '<h2 class="results__heading">Эффект досрочных погашений</h2>' +
+    `<dl class="stats">${statsHtml([
+      {
+        label: 'Экономия на процентах',
+        value: fmtMoney(effect.interestSaved),
+        note: `без досрочек переплата ${fmtMoney(effect.baseline.summary.totalInterest)}`,
+        tone: 'interest',
+      },
+      effect.monthsSaved > 0
+        ? {
+            label: 'Кредит закрыт раньше',
+            value: `на ${fmtMonthsAsYears(effect.monthsSaved)}`,
+            note: `за ${fmtMonthsAsYears(r.summary.actualMonths)} вместо ${fmtMonthsAsYears(effect.baseline.summary.actualMonths)}`,
+          }
+        : null,
+      effect.paymentReduced > 0
+        ? { label: 'Платёж снижен', value: `на ${fmtMoney(effect.paymentReduced)}` }
+        : null,
+    ])}</dl>`
+  );
+}
 
 /** Главная цифра и подпись к ней */
 export function figureText(r: ScheduleResult): { label: string; value: string; note: string } {

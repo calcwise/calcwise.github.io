@@ -14,8 +14,10 @@ import type { CalculatorState } from '@/lib/url-state';
 interface Props {
   initial: CalculatorState;
   result: ScheduleResult;
+  /** График без досрочек: пунктир на графике остатка, как рисует скрипт */
+  baseline?: ScheduleResult;
 }
-const { initial, result } = Astro.props;
+const { initial, result, baseline } = Astro.props;
 const share = shareText(result);
 ---
 
@@ -37,10 +39,10 @@ const share = shareText(result);
   <div class="analysis__charts no-print">
     <div class="analysis__block">
       <h3 class="results__subheading">Остаток долга</h3>
-      <div class="chart-box" data-chart="balance" set:html={balanceChart(result)} />
+      <div class="chart-box" data-chart="balance" set:html={balanceChart(result, baseline)} />
       <Legend
         data-out="balance-legend"
-        hidden
+        hidden={!baseline}
         items={[
           { tone: 'line', label: 'с досрочными погашениями' },
           { tone: 'dashed', label: 'без них' },

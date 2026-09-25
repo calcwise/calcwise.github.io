@@ -4,7 +4,18 @@ import assert from 'node:assert/strict';
 import { isAllowedNumeric } from './numeric-input.ts';
 
 test('decimal: цифры, пробелы-разделители и одна запятая или точка', () => {
-  for (const ok of ['', '250 000', '250 000', '15,4', '15.4', '7,', ',5', '3396,21'])
+  for (const ok of [
+    '',
+    '250 000',
+    '250 000',
+    '15,4',
+    '15.4',
+    '7,',
+    ',5',
+    '3396,21',
+    '250 000,00 ',
+    '3 396,21 ',
+  ])
     assert.ok(isAllowedNumeric('decimal', ok), ok);
   for (const bad of ['abc', '15,4,', '1.2.3', '15%', '-5', '1e3', 'два'])
     assert.ok(!isAllowedNumeric('decimal', bad), bad);

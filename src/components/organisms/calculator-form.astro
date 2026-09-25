@@ -6,6 +6,17 @@
  */
 import Field from '@/components/molecules/field.astro';
 import Segmented from '@/components/molecules/segmented.astro';
+import type { ScheduleResult } from '@/lib/mortgage';
+import { extraHintText, formValues, hasExtraConditions } from '@/lib/schedule-render';
+import type { CalculatorState } from '@/lib/url-state';
+
+interface Props {
+  /** Стартовое состояние: форма приходит заполненной так же, как её заполнит скрипт */
+  initial: CalculatorState;
+  result: ScheduleResult;
+}
+const { initial, result } = Astro.props;
+const values = formValues(initial, result);
 
 const termUnits = [
   { value: 'years', label: 'лет' },
@@ -17,14 +28,14 @@ const termUnits = [
   {/* Тип платежей — главная развилка расчёта, поэтому отдельно и крупно над полями */}
   <div class="kind" role="radiogroup" aria-label="Тип платежей">
     <label class="kind__option">
-      <input type="radio" name="type" value="annuity" checked />
+      <input type="radio" name="type" value="annuity" checked={initial.type === 'annuity'} />
       <span class="kind__body">
         <span class="kind__title">Аннуитетный</span>
         <span class="kind__hint">платёж одинаковый весь срок</span>
       </span>
     </label>
     <label class="kind__option">
-      <input type="radio" name="type" value="diff" />
+      <input type="radio" name="type" value="diff" checked={initial.type === 'diff'} />
       <span class="kind__body">
         <span class="kind__title">Дифференцированный</span>
         <span class="kind__hint">платёж больше в начале и уменьшается</span>
@@ -34,30 +45,36 @@ const termUnits = [
 
   {/* Срок и платёж связаны: ведёт поле, которое правили последним, второе пересчитывается */}
   <div class="form__main">
-    <Field label="Сумма кредита" field="amount" size="lg" />
-    <Field label="Ставка" field="rate" size="lg" unit="% годовых" />
-    <Field label="Срок" field="term" size="lg" id="term-label">
-      <Segmented name="term-unit" label="Единица срока" options={termUnits} value="years" inline />
+    <Field label="Сумма кредита" field="amount" size="lg" value={values.amount} />
+    <Field label="Ставка" field="rate" size="lg" unit="% годовых" value={values.rate} />
+    <Field label="Срок" field="term" size="lg" id="term-label" value={values.term}>
+      <Segmented
+        name="term-unit"
+        label="Единица срока"
+        options={termUnits}
+        value={values.unit}
+        inline
+      />
     </Field>
     <div class="control">
-      <span class="control__label" id="payment-label" data-payment-label>Платёж в месяц</span>
+      <span class="control__label" id="payment-label" data-payment-label>{values.paymentLabel}</span
+      >
       <span class="control__field">
         <input
           class="control__input control__input--lg num"
           data-field="payment"
           inputmode="decimal"
           aria-labelledby="payment-label"
+          value={values.payment}
         />
       </span>
     </div>
   </div>
 
-  <details class="extra" data-extra>
+  <details class="extra" data-extra open={hasExtraConditions(initial)}>
     <summary class="extra__summary">
       <span class="extra__title">Дополнительные условия</span>
-      <span class="extra__hint" data-out="extra-hint"
-        >ставка по периодам, отсрочка, досрочные погашения, порядок процентов, переплата</span
-      >
+      <span class="extra__hint" data-out="extra-hint">{extraHintText(initial)}</span>
     </summary>
     <div class="extra__body">
       <section class="block" aria-labelledby="rates-heading">

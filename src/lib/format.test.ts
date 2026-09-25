@@ -31,7 +31,9 @@ test('fmtShort: тысячи и миллионы для осей графико�
 test('fmtRate: без лишних нулей, с запятой', () => {
   assert.equal(fmtRate(15.4), '15,4');
   assert.equal(fmtRate(12), '12');
-  assert.equal(fmtRate(7.125), '7,13');
+  /* Ставка не округляется до сотых: 13,125% в договоре встречается */
+  assert.equal(fmtRate(7.125), '7,125');
+  assert.equal(fmtRate(7.12345), '7,1235');
 });
 
 test('parseNumber и parseInteger: пробелы и запятая, мусор — NaN', () => {

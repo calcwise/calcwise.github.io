@@ -23,7 +23,7 @@ export function fmtShort(n: number): string {
 
 /** Ставка без лишних нулей: 15.4 → «15,4», 12 → «12» */
 export function fmtRate(rate: number): string {
-  return String(Math.round(rate * 100) / 100).replace('.', ',');
+  return String(Math.round(rate * 10_000) / 10_000).replace('.', ',');
 }
 
 /** Число из поля ввода: пробелы и запятая допустимы. NaN, если это не число */
