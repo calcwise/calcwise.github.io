@@ -1,7 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { DEFAULT_STATE, decodeState, stateQuery } from './url-state.ts';
+import {
+  DEFAULT_STATE,
+  decodeScenarios,
+  decodeState,
+  encodeState,
+  scenariosQuery,
+  stateQuery,
+} from './url-state.ts';
 import type { CalculatorState } from './url-state.ts';
 
 const state: CalculatorState = {
@@ -44,4 +51,22 @@ test('старые короткие ключи и формы досрочек ч
     ),
   );
   assert.deepEqual(old, state);
+});
+
+test('сравнение: сценарии ключами с номером, без вложенного запроса и %', () => {
+  const second: CalculatorState = { ...DEFAULT_STATE, type: 'diff' };
+  const query = scenariosQuery([state, second]);
+  assert.ok(!/%/.test(query), query);
+  assert.ok(query.startsWith('1.amount=180000&1.months=239&1.type=diff'), query);
+  assert.ok(query.includes('&2.amount=250000&2.months=240&2.type=diff'), query);
+  assert.deepEqual(decodeScenarios(new URLSearchParams(query), 3), [state, second]);
+});
+
+test('сравнение: старый формат с параметром s читается, лишние сценарии отбрасываются', () => {
+  const params = new URLSearchParams();
+  for (let i = 0; i < 4; i++) params.append('s', encodeState(state).toString());
+  const scenarios = decodeScenarios(params, 3);
+  assert.equal(scenarios.length, 3);
+  assert.deepEqual(scenarios[0], state);
+  assert.deepEqual(decodeScenarios(new URLSearchParams('4.amount=1'), 3), []);
 });

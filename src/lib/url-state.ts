@@ -202,6 +202,53 @@ export function stateQuery(state: CalculatorState): string {
     .join('&');
 }
 
+/**
+ * Несколько сценариев в одном адресе для страницы сравнения: ключи каждого сценария
+ * с номером впереди — 1.amount=250000&1.type=annuity&2.amount=250000&2.type=diff.
+ * Так адрес читается так же, как у калькулятора, без вложенного и дважды закодированного
+ * запроса.
+ */
+export function scenariosQuery(states: CalculatorState[]): string {
+  return states
+    .map((state, i) =>
+      stateQuery(state)
+        .split('&')
+        .map((pair) => `${i + 1}.${pair}`)
+        .join('&'),
+    )
+    .join('&');
+}
+
+/**
+ * Сценарии из адреса. Понимает и прежний формат, где каждый сценарий был вложен
+ * в параметр s целиком. Пустой массив — сценариев в адресе нет.
+ */
+export function decodeScenarios(
+  params: URLSearchParams,
+  max: number,
+  fallback: CalculatorState = DEFAULT_STATE,
+): CalculatorState[] {
+  const byIndex = new Map<number, URLSearchParams>();
+  for (const [key, value] of params) {
+    const match = /^(\d+)\.(.+)$/.exec(key);
+    if (!match) continue;
+    const index = Number(match[1]);
+    if (index < 1 || index > max) continue;
+    const own = byIndex.get(index) ?? new URLSearchParams();
+    own.append(match[2]!, value);
+    byIndex.set(index, own);
+  }
+  if (byIndex.size > 0) {
+    return [...byIndex.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([, own]) => decodeState(own, fallback));
+  }
+  return params
+    .getAll('s')
+    .slice(0, max)
+    .map((s) => decodeState(new URLSearchParams(s), fallback));
+}
+
 /** Ссылка на текущий расчёт для кнопки «Скопировать ссылку» */
 export function stateUrl(state: CalculatorState, base: string): string {
   const url = new URL(base);

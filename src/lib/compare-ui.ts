@@ -15,7 +15,7 @@ import {
 } from './format.ts';
 import { buildSchedule } from './mortgage/index.ts';
 import type { ScheduleResult } from './mortgage/index.ts';
-import { DEFAULT_STATE, decodeState, encodeState } from './url-state.ts';
+import { DEFAULT_STATE, decodeScenarios, scenariosQuery } from './url-state.ts';
 import type { CalculatorState } from './url-state.ts';
 import { fmtShort } from './format.ts';
 import { yTicks } from './charts.ts';
@@ -399,8 +399,7 @@ export function initCompare(root: HTMLElement): void {
     renderChart(chart, results);
     addButton.hidden = scenarios.length >= MAX;
     const url = new URL(location.href);
-    url.searchParams.delete('s');
-    scenarios.forEach((s) => url.searchParams.append('s', encodeState(s.state).toString()));
+    url.search = scenariosQuery(scenarios.map((s) => s.state));
     history.replaceState(null, '', url);
   };
   const scheduleRecalc = debounce(recalc, 150);
@@ -419,9 +418,9 @@ export function initCompare(root: HTMLElement): void {
     list.append(scenario.card);
   };
 
-  const fromUrl = new URLSearchParams(location.search).getAll('s');
+  const fromUrl = decodeScenarios(new URLSearchParams(location.search), MAX);
   if (fromUrl.length) {
-    fromUrl.slice(0, MAX).forEach((s) => add(decodeState(new URLSearchParams(s))));
+    fromUrl.forEach((state) => add(state));
     if (fromUrl.length === 1) {
       /* Пришли с одним сценарием: рядом сразу ставим альтернативу — другой тип платежей */
       const base = scenarios[0]!.state;

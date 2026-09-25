@@ -35,7 +35,13 @@ import {
   sensitivityHtml,
   statsHtml,
 } from './schedule-render.ts';
-import { DEFAULT_STATE, decodeState, encodeState, stateQuery } from './url-state.ts';
+import {
+  DEFAULT_STATE,
+  decodeState,
+  encodeState,
+  scenariosQuery,
+  stateQuery,
+} from './url-state.ts';
 import type { CalculatorState } from './url-state.ts';
 
 const STORAGE_KEY = 'calcwise:mortgage:v3';
@@ -772,8 +778,7 @@ export function initCalculator(root: HTMLElement): void {
       ?.addEventListener('click', (e) => {
         const link = e.currentTarget as HTMLAnchorElement;
         const url = new URL(link.href);
-        if (action === 'compare') url.searchParams.set('s', encodeState(current).toString());
-        else url.search = stateQuery(current);
+        url.search = action === 'compare' ? scenariosQuery([current]) : stateQuery(current);
         link.href = url.toString();
       });
   }
