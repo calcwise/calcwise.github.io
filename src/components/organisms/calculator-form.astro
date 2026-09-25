@@ -17,9 +17,35 @@ const termUnits = [
   <div class="form__main">
     <Field label="Сумма кредита" field="amount" size="lg" />
     <Field label="Ставка" field="rate" size="lg" unit="% годовых" />
-    <Field label="Срок" field="term" size="lg" id="term-label">
-      <Segmented name="term-unit" label="Единица срока" options={termUnits} value="years" inline />
-    </Field>
+    {/* Подпись поля — переключатель: задать срок или платёж, срок тогда подбирается */}
+    <div class="control">
+      <div class="term-mode" role="radiogroup" aria-label="Что задать: срок или платёж">
+        <label class="term-mode__option">
+          <input type="radio" name="term-mode" value="term" checked />
+          <span>Срок</span>
+        </label>
+        <label class="term-mode__option">
+          <input type="radio" name="term-mode" value="payment" />
+          <span>Платёж в месяц</span>
+        </label>
+      </div>
+      <div class="control__field control__field--split">
+        <input
+          class="control__input control__input--lg num"
+          data-field="term"
+          inputmode="decimal"
+          aria-label="Срок"
+        />
+        <Segmented
+          name="term-unit"
+          label="Единица срока"
+          options={termUnits}
+          value="years"
+          inline
+          data-term-units=""
+        />
+      </div>
+    </div>
     {/* Не fieldset: legend не участвует в сетке control и сбивает линию с полями */}
     <div class="control" role="group" aria-labelledby="type-label">
       <span class="control__label" id="type-label">Тип платежей</span>
@@ -158,6 +184,49 @@ const termUnits = [
   .form__main {
     display: grid;
     gap: var(--space-4);
+  }
+
+  /* Переключатель в строке подписи: выглядит как подпись, выбранный вариант ярче.
+     Цель нажатия 44px, отрицательный отступ держит строку подписи той же высоты */
+  .term-mode {
+    display: flex;
+    gap: var(--space-3);
+    margin-block: calc((1lh - var(--tap-min)) / 2);
+    font-size: var(--text-sm);
+  }
+
+  .term-mode__option {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: var(--transition-ui);
+  }
+
+  .term-mode__option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .term-mode__option:hover {
+    color: var(--color-text);
+  }
+
+  .term-mode__option:has(input:checked) {
+    color: var(--color-text);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--color-ink);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.3em;
+  }
+
+  .term-mode__option:has(input:focus-visible) {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
   }
 
   .extra {

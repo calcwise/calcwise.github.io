@@ -5,8 +5,10 @@ import Big from 'big.js';
 import { buildSchedule } from './schedule.ts';
 import {
   extraPaymentForTerm,
+  maxPlannedPayment,
   prepaymentEffect,
   rateSensitivity,
+  termForPayment,
   termSensitivity,
   yearSummaries,
 } from './analysis.ts';
@@ -603,4 +605,48 @@ test('досрочка «в срок» внутри отсрочки: платё
   assert.ok(r.summary.totalInterest < plain.summary.totalInterest);
   const effect = prepaymentEffect(r)!;
   assert.ok(effect.monthsSaved > 0);
+});
+
+test('расчёт по платежу: самый короткий срок, при котором платёж не больше заданного', () => {
+  const input = fixed(250_000, 15.4, 240, 'annuity', { gracePeriods: [{ start: 1, months: 12 }] });
+  /* Банковский пример: платёж 3 396,21 даёт ровно 239 месяцев */
+  assert.equal(termForPayment(input, 3396.21), 239);
+  assert.equal(termForPayment(input, 3397), 239);
+  const months = termForPayment(input, 4000)!;
+  const at = buildSchedule({ ...input, months });
+  const shorter = buildSchedule({ ...input, months: months - 1 });
+  assert.ok(maxPlannedPayment(at) <= 4000);
+  assert.ok(maxPlannedPayment(shorter) > 4000);
+});
+
+test('расчёт по платежу: дифференцированный — по первому, самому большому платежу', () => {
+  const input = fixed(1_200_000, 12, 120, 'diff');
+  const months = termForPayment(input, 30_000)!;
+  const r = buildSchedule({ ...input, months });
+  assert.equal(maxPlannedPayment(r), r.rows[0]!.payment);
+  assert.ok(r.rows[0]!.payment <= 30_000);
+  assert.ok(maxPlannedPayment(buildSchedule({ ...input, months: months - 1 })) > 30_000);
+});
+
+test('расчёт по платежу: дорогой период ставки задаёт срок', () => {
+  const input = fixed(1_000_000, 5, 120, 'annuity', {
+    rates: [
+      { fromMonth: 1, ratePercent: 5 },
+      { fromMonth: 13, ratePercent: 15 },
+    ],
+  });
+  const months = termForPayment(input, 20_000)!;
+  const r = buildSchedule({ ...input, months });
+  assert.ok(maxPlannedPayment(r) <= 20_000);
+  assert.ok(r.rows[0]!.payment < r.rows[12]!.payment);
+});
+
+test('расчёт по платежу: платёж меньше процентов не подходит ни при каком сроке', () => {
+  const input = fixed(250_000, 15.4, 240, 'annuity', { gracePeriods: [{ start: 1, months: 12 }] });
+  /* В отсрочку платятся проценты 3 208,33 — меньший платёж невозможен */
+  assert.equal(termForPayment(input, 3200), null);
+  assert.equal(termForPayment(fixed(1_000_000, 12, 60, 'annuity'), 10_000), null);
+  assert.equal(termForPayment(fixed(1_000_000, 12, 60, 'annuity'), 0), null);
+  /* Беспроцентный кредит: срок = сумма / платёж, округлённо вверх */
+  assert.equal(termForPayment(fixed(100_000, 0, 60, 'annuity'), 3000), 34);
 });

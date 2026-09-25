@@ -70,3 +70,15 @@ test('сравнение: старый формат с параметром s ч
   assert.deepEqual(scenarios[0], state);
   assert.deepEqual(decodeScenarios(new URLSearchParams('4.amount=1'), 3), []);
 });
+
+test('расчёт по платежу: в адресе payment вместо months, срок подбирается при чтении', () => {
+  const query = 'amount=250000&payment=3396.21&type=annuity&rate=15.4&grace=1x12';
+  const decoded = decodeState(new URLSearchParams(query));
+  assert.equal(decoded.targetPayment, 3396.21);
+  assert.equal(decoded.months, 239);
+  const encoded = stateQuery(decoded);
+  assert.ok(encoded.includes('payment=3396.21'), encoded);
+  assert.ok(!encoded.includes('months='), encoded);
+  /* Без payment прежний адрес не несёт расчёта по платежу */
+  assert.equal(decodeState(new URLSearchParams('amount=1&months=12')).targetPayment, undefined);
+});

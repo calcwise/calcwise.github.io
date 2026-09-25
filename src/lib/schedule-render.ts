@@ -24,6 +24,8 @@ export function describeState(state: CalculatorState, result?: ScheduleResult): 
     state.type === 'annuity' ? 'аннуитетными платежами' : 'дифференцированными платежами';
 
   let text = `${fmtMoney(state.amount)} под ${fmtRate(first!.ratePercent)}% на ${term} ${type}`;
+  if (state.targetPayment !== undefined)
+    text += `, срок подобран под платёж не больше ${fmtMoney(state.targetPayment)}`;
   if (rest.length) {
     text += `, ставка меняется: ${rest
       .map((r) => `с ${r.fromMonth}-го месяца ${fmtRate(r.ratePercent)}%`)

@@ -3,9 +3,11 @@ export {
   extraPaymentForTerm,
   formatRate,
   formatYears,
+  maxPlannedPayment,
   plural,
   prepaymentEffect,
   rateSensitivity,
+  termForPayment,
   termSensitivity,
   yearSummaries,
 } from './analysis.ts';

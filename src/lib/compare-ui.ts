@@ -196,7 +196,7 @@ function readScenario(card: HTMLElement, base: CalculatorState): CalculatorState
           },
         ]
       : [];
-  return {
+  const scenario: CalculatorState = {
     ...base,
     amount,
     months,
@@ -206,6 +206,9 @@ function readScenario(card: HTMLElement, base: CalculatorState): CalculatorState
     prepayments,
     graceExtendsTerm: base.graceExtendsTerm,
   };
+  /* В карточке сравнения срок вводится месяцами: расчёт по платежу здесь не действует */
+  delete scenario.targetPayment;
+  return scenario;
 }
 
 interface Metric {

@@ -4,6 +4,8 @@
  *
  *   amount=250000            сумма
  *   months=239               срок в месяцах
+ *   payment=3000             расчёт по платежу вместо срока: срок подбирается так, чтобы
+ *                            ни один плановый платёж не был больше этой суммы
  *   type=annuity|diff        тип платежей
  *   rate=15.4                ставка; периоды через запятую как «ставка@месяц»: rate=5@1,15@13
  *   grace=1x12,61x3          отсрочки «с месяца x длительность»
@@ -19,12 +21,18 @@
  * Старые короткие ключи (a, n, t, r, g, ge, ia, x, p, y) и короткие формы досрочек
  * (t/p, o/m/y, b) по-прежнему читаются: ссылки, разосланные раньше, не ломаются.
  */
+import { termForPayment } from './mortgage/index.ts';
 import type { Prepayment, ScheduleInput } from './mortgage/index.ts';
 
 export interface CalculatorState extends ScheduleInput {
   amount: number;
   /** Срок в форме показан в годах, а не месяцах */
   termInYears: boolean;
+  /**
+   * Расчёт по платежу: желаемый платёж в месяц. Если задан, months подобран под него
+   * (termForPayment) и в адрес пишется payment, а не months.
+   */
+  targetPayment?: number;
   /**
    * Дополнительная переплата сверх графика, введённая пользователем.
    * undefined — значение по умолчанию (см. extraOverpayment в schedule-render.ts)
@@ -64,7 +72,8 @@ const num = (n: number) => String(Math.round(n * 100) / 100);
 export function encodeState(state: CalculatorState): URLSearchParams {
   const params = new URLSearchParams();
   params.set('amount', num(state.amount));
-  params.set('months', String(state.months));
+  if (state.targetPayment !== undefined) params.set('payment', num(state.targetPayment));
+  else params.set('months', String(state.months));
   params.set('type', state.type);
   params.set(
     'rate',
@@ -185,6 +194,13 @@ export function decodeState(
   if (x !== null && x >= 0) state.extraOverpayment = x;
   else delete state.extraOverpayment;
   if (get('unit', 'y') === 'months' || params.get('y') === '0') state.termInYears = false;
+
+  const payment = number('payment', 'payment');
+  if (payment !== null && payment > 0) {
+    state.targetPayment = payment;
+    const months = termForPayment(state, payment);
+    if (months !== null) state.months = months;
+  } else delete state.targetPayment;
   return state;
 }
 

@@ -89,6 +89,11 @@ verified yet (the same bank's annuity schedule has no shift and matches the defa
 Tests in `src/lib/mortgage/schedule.test.ts` pin all of this — extend them with any new
 behaviour.
 
+"Расчёт по платежу" (`CalculatorState.targetPayment`, URL `payment=` instead of `months=`)
+lives outside the engine: `termForPayment()` in `lib/mortgage/analysis.ts` binary-searches the
+shortest term whose largest planned payment (no prepayments) is ≤ the target, and
+`decodeState`/`readForm` put the result into `months`. The engine itself never sees the target.
+
 "Дополнительная переплата" (`CalculatorState.extraOverpayment`, URL `extra=`) is a user-entered
 amount outside the engine: what the bank adds on top of the schedule. It counts only when
 entered (`extraOverpayment()` in `lib/schedule-render.ts`; `suggestedExtra()` only feeds the

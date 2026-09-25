@@ -5,6 +5,9 @@
 import { buildSchedule } from './schedule.ts';
 import type { ScheduleInput, ScheduleResult, YearSummary } from './types.ts';
 
+/** Самый длинный срок, который принимает калькулятор (см. validate.ts) */
+const MAX_MONTHS = 600;
+
 export function yearSummaries(result: ScheduleResult): YearSummary[] {
   const years: YearSummary[] = [];
   for (let i = 0; i < result.rows.length; i += 12) {
@@ -146,6 +149,39 @@ export function extraPaymentForTerm(input: ScheduleInput, targetMonths: number):
     else hi = mid;
   }
   return Math.ceil(hi * 100) / 100;
+}
+
+/** Самый большой плановый платёж графика, без досрочек: то, что банк спишет в худший месяц */
+export function maxPlannedPayment(result: ScheduleResult): number {
+  return Math.max(...result.rows.map((r) => r.payment));
+}
+
+/**
+ * Расчёт по платежу: самый короткий срок в месяцах, при котором ни один плановый платёж
+ * не больше payment. Для аннуитета это обычный платёж, для дифференцированного — первый,
+ * самый большой; при ставке по периодам учитывается самый дорогой период, при отсрочке —
+ * проценты в отсрочку. Досрочки в подборе не участвуют: они лишь сокращают срок потом.
+ * null — такой платёж не покрывает проценты даже при сроке 50 лет.
+ */
+export function termForPayment(input: ScheduleInput, payment: number): number | null {
+  const fits = (months: number): boolean => {
+    try {
+      const r = buildSchedule({ ...input, months, prepayments: [] });
+      return maxPlannedPayment(r) <= payment + 0.005;
+    } catch {
+      /* Слишком короткий срок для отсрочки или платёж меньше процентов — не подходит */
+      return false;
+    }
+  };
+  if (!(payment > 0) || !fits(MAX_MONTHS)) return null;
+  let lo = 1;
+  let hi = MAX_MONTHS;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (fits(mid)) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
 }
 
 export function formatRate(rate: number): string {

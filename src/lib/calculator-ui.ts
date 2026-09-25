@@ -18,6 +18,8 @@ import {
 import {
   ScheduleInputError,
   buildSchedule,
+  maxPlannedPayment,
+  termForPayment,
   extraPaymentForTerm,
   plannedMonths,
   prepaymentEffect,
@@ -57,7 +59,8 @@ interface FormRefs {
   amount: HTMLInputElement;
   rate: HTMLInputElement;
   term: HTMLInputElement;
-  termUnit: () => 'years' | 'months';
+  termUnit: () => 'years' | 'months' | 'payment';
+  termUnits: HTMLElement;
   type: () => 'annuity' | 'diff';
   rates: HTMLElement;
   grace: HTMLElement;
@@ -67,6 +70,13 @@ interface FormRefs {
   prepayments: HTMLElement;
   extra: HTMLDetailsElement;
   errors: HTMLElement;
+}
+
+/* В режиме платежа единицы срока не нужны, а поле называется по-другому для читалок */
+function syncTermMode(refs: FormRefs): void {
+  const byPayment = refs.termUnit() === 'payment';
+  refs.termUnits.hidden = byPayment;
+  refs.term.setAttribute('aria-label', byPayment ? 'Платёж в месяц' : 'Срок');
 }
 
 interface FieldError {
@@ -259,9 +269,17 @@ function fillForm(refs: FormRefs, state: CalculatorState, onChange: () => void):
   refs.rate.value = fmtRate(state.rates[0]!.ratePercent);
   const wholeYears = state.months % 12 === 0;
   const inYears = state.termInYears && wholeYears;
-  q<HTMLInputElement>(refs.form, 'input[name="term-unit"][value="years"]').checked = inYears;
-  q<HTMLInputElement>(refs.form, 'input[name="term-unit"][value="months"]').checked = !inYears;
-  refs.term.value = inYears ? String(state.months / 12) : String(state.months);
+  const byPayment = state.targetPayment !== undefined;
+  const unit = inYears ? 'years' : 'months';
+  const mode = byPayment ? 'payment' : 'term';
+  q<HTMLInputElement>(refs.form, `input[name="term-unit"][value="${unit}"]`).checked = true;
+  q<HTMLInputElement>(refs.form, `input[name="term-mode"][value="${mode}"]`).checked = true;
+  refs.term.value = byPayment
+    ? formatAmountInput(String(state.targetPayment))
+    : inYears
+      ? String(state.months / 12)
+      : String(state.months);
+  syncTermMode(refs);
   q<HTMLInputElement>(refs.form, `input[name="type"][value="${state.type}"]`).checked = true;
 
   clear(refs.rates);
@@ -301,7 +319,12 @@ function readForm(refs: FormRefs): ReadResult {
 
   const unit = refs.termUnit();
   let months = Number.NaN;
-  if (unit === 'years') {
+  let targetPayment: number | undefined;
+  if (unit === 'payment') {
+    targetPayment = parseNumber(refs.term.value);
+    if (!Number.isFinite(targetPayment) || targetPayment <= 0)
+      errors.push({ field: 'term', message: 'Введите платёж в месяц больше 0' });
+  } else if (unit === 'years') {
     const years = parseNumber(refs.term.value);
     months = Number.isFinite(years) ? Math.round(years * 12) : Number.NaN;
     if (!Number.isFinite(years) || years <= 0)
@@ -389,9 +412,23 @@ function readForm(refs: FormRefs): ReadResult {
     graceExtendsTerm: refs.graceExtends.checked,
     interestInArrears: refs.interestArrears.checked,
     prepayments,
-    termInYears: unit === 'years',
+    termInYears: unit !== 'months',
   };
   if (extraOverpayment !== undefined) state.extraOverpayment = extraOverpayment;
+
+  /* Расчёт по платежу: срок подбирается, когда остальные условия уже прочитаны без ошибок */
+  if (targetPayment !== undefined && errors.length === 0) {
+    state.targetPayment = targetPayment;
+    const found = termForPayment(state, targetPayment);
+    if (found === null) {
+      /* Проценты за месяц на всю сумму по самой высокой ставке: меньше них платить нельзя */
+      const interest = (amount * Math.max(...rates.map((r) => r.ratePercent))) / 1200;
+      errors.push({
+        field: 'term',
+        message: `При таком платеже кредит не погасить и за 50 лет: проценты за месяц уже ${fmtMoney(interest)}, платёж должен быть заметно больше`,
+      });
+    } else state.months = found;
+  }
   return { state, errors };
 }
 
@@ -602,10 +639,14 @@ export function initCalculator(root: HTMLElement): void {
     amount: q<HTMLInputElement>(form, '[data-field="amount"]'),
     rate: q<HTMLInputElement>(form, '[data-field="rate"]'),
     term: q<HTMLInputElement>(form, '[data-field="term"]'),
-    termUnit: () =>
-      q<HTMLInputElement>(form, 'input[name="term-unit"]:checked').value === 'years'
+    termUnit: () => {
+      if (q<HTMLInputElement>(form, 'input[name="term-mode"]:checked').value === 'payment')
+        return 'payment';
+      return q<HTMLInputElement>(form, 'input[name="term-unit"]:checked').value === 'years'
         ? 'years'
-        : 'months',
+        : 'months';
+    },
+    termUnits: q(form, '[data-term-units]'),
     type: () =>
       q<HTMLInputElement>(form, 'input[name="type"]:checked').value === 'diff' ? 'diff' : 'annuity',
     rates: q(form, '[data-list="rates"]'),
@@ -625,7 +666,9 @@ export function initCalculator(root: HTMLElement): void {
     ? (JSON.parse(root.dataset.initial) as CalculatorState)
     : DEFAULT_STATE;
   const fromUrl = new URLSearchParams(location.search);
-  const hasUrlState = ['amount', 'months', 'rate', 'a', 'n', 'r'].some((key) => fromUrl.has(key));
+  const hasUrlState = ['amount', 'months', 'payment', 'rate', 'a', 'n', 'r'].some((key) =>
+    fromUrl.has(key),
+  );
   const pageHasPreset = root.dataset.preset === '1';
   const initial = hasUrlState
     ? decodeState(fromUrl, pageInitial)
@@ -701,16 +744,35 @@ export function initCalculator(root: HTMLElement): void {
     refs.amount.value = formatAmountInput(refs.amount.value);
   });
 
-  /* Переключение лет и месяцев пересчитывает число в поле, а не срок */
+  /* Переключение лет, месяцев, срока и платежа пересчитывает число в поле, а не условия:
+     в платёж подставляется текущий самый большой платёж, округлённый вверх до целого,
+     обратно — подобранный срок */
+  const termInField = () =>
+    refs.termUnit() === 'years'
+      ? String(Math.round((current.months / 12) * 100) / 100).replace('.', ',')
+      : String(current.months);
   qa<HTMLInputElement>(form, 'input[name="term-unit"]').forEach((radio) =>
     radio.addEventListener('change', () => {
-      const months = current.months;
-      refs.term.value =
-        radio.value === 'years'
-          ? String(Math.round((months / 12) * 100) / 100).replace('.', ',')
-          : String(months);
+      refs.term.value = termInField();
     }),
   );
+  qa<HTMLInputElement>(form, 'input[name="term-mode"]').forEach((radio) =>
+    radio.addEventListener('change', () => {
+      if (radio.value === 'payment') {
+        let payment = 0;
+        try {
+          payment = Math.ceil(maxPlannedPayment(buildSchedule(current)));
+        } catch {
+          payment = 0;
+        }
+        refs.term.value = payment > 0 ? formatAmountInput(String(payment)) : '';
+      } else refs.term.value = termInField();
+      syncTermMode(refs);
+    }),
+  );
+  refs.term.addEventListener('blur', () => {
+    if (refs.termUnit() === 'payment') refs.term.value = formatAmountInput(refs.term.value);
+  });
 
   qa<HTMLButtonElement>(form, '[data-add]').forEach((button) =>
     button.addEventListener('click', () => {
