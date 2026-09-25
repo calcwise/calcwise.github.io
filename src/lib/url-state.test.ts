@@ -8,6 +8,7 @@ import {
   encodeState,
   scenariosQuery,
   stateQuery,
+  stateUrl,
 } from './url-state.ts';
 import type { CalculatorState } from './url-state.ts';
 
@@ -81,4 +82,12 @@ test('расчёт по платежу: в адресе payment вместо mon
   assert.ok(!encoded.includes('months='), encoded);
   /* Без payment прежний адрес не несёт расчёта по платежу */
   assert.equal(decodeState(new URLSearchParams('amount=1&months=12')).targetPayment, undefined);
+});
+
+test('ссылка на расчёт: путь страницы сохраняется, запрос читаемый', () => {
+  const url = stateUrl({ ...DEFAULT_STATE }, 'https://calcwise.by/mortgage/?old=1#top');
+  assert.equal(
+    url,
+    'https://calcwise.by/mortgage/?amount=250000&months=240&type=annuity&rate=15.4#top',
+  );
 });

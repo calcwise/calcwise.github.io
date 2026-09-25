@@ -388,10 +388,11 @@ const termUnits = [
     color: var(--color-text-muted);
   }
 
-  /* На узком экране пояснения к типу прячутся: без них оба варианта в одну строку */
+  /* На узком экране «Дифференцированный» не помещается в половину ширины:
+     варианты встают друг под другом */
   @media (max-width: 479px) {
-    .kind__hint {
-      display: none;
+    .kind {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 

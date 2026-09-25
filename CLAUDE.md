@@ -9,16 +9,18 @@ anywhere — only amounts, because the math does not depend on currency.
 Astro 7, TypeScript strict, npm, Node 22.12+. Static build, no adapter, no UI framework. Runtime
 dependencies: `big.js` (exact money arithmetic) and `sharp` (icons at build time only).
 
-| Command           | What it does                                          |
-| ----------------- | ----------------------------------------------------- |
-| `npm run dev`     | dev server on :4321                                   |
-| `npm run build`   | static build into `dist/`                             |
-| `npm run preview` | serve `dist/`                                         |
-| `npm run check`   | `astro check` (types and templates)                   |
-| `npm test`        | `node --test` over `src/lib/**/*.test.ts`             |
-| `npm run lint`    | ESLint with `--fix`; architecture rules live here     |
-| `npm run format`  | Prettier                                              |
-| `npm run icons`   | regenerate PNG icons, favicon.ico and og.png from SVG |
+| Command                 | What it does                                                           |
+| ----------------------- | ---------------------------------------------------------------------- |
+| `npm run dev`           | dev server on :4321                                                    |
+| `npm run build`         | static build into `dist/`                                              |
+| `npm run preview`       | serve `dist/`                                                          |
+| `npm run check`         | `astro check` (types and templates)                                    |
+| `npm test`              | `node --test` over `src/lib/**/*.test.ts`                              |
+| `npm run test:coverage` | tests with coverage thresholds (lines 90, branches/functions 85)       |
+| `npm run verify`        | everything CI runs: format:check, lint:ci, check, test:coverage, build |
+| `npm run lint`          | ESLint with `--fix`; architecture rules live here                      |
+| `npm run format`        | Prettier                                                               |
+| `npm run icons`         | regenerate PNG icons, favicon.ico and og.png from SVG                  |
 
 Before finishing any task run `npm run build && npm run check && npm run lint && npm test` —
 all four must be green.

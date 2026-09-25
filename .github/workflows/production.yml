@@ -42,15 +42,21 @@ jobs:
 
       - run: npm ci
 
+      - name: Форматирование
+        run: npm run format:check
+
+      # Без --fix: CI не чинит код молча, а падает
+      - name: Линтер
+        run: npm run lint:ci
+
+      - name: Типы и шаблоны
+        run: npm run check
+
+      # Расчётное ядро: переплата должна сходиться с банковскими графиками
+      - name: Тесты и покрытие
+        run: npm run test:coverage
+
       - run: npm run build
-
-      - run: npm run check
-
-      # Без --fix, в отличие от npm run lint: CI не чинит код молча, а падает.
-      - run: npx eslint .
-
-      # Расчётное ядро: переплата должна сходиться с банковскими графиками.
-      - run: npm test
 
       # Без .htaccess не работают ни редиректы, ни https, ни заголовки — и сервер молчит.
       - name: Проверить, что .htaccess попал в сборку

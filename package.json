@@ -14,8 +14,12 @@
     "preview": "astro preview",
     "check": "astro check",
     "test": "node --test 'src/lib/**/*.test.ts'",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude='src/lib/**/*.test.ts' --test-coverage-lines=90 --test-coverage-branches=85 --test-coverage-functions=85 'src/lib/**/*.test.ts'",
     "lint": "eslint . --fix",
+    "lint:ci": "eslint . --max-warnings=0",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "npm run format:check && npm run lint:ci && npm run check && npm run test:coverage && npm run build",
     "icons": "node scripts/icons.mjs"
   },
   "dependencies": {

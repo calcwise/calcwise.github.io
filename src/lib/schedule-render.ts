@@ -276,8 +276,8 @@ export function shareText(r: ScheduleResult): {
   const principal = (r.summary.totalPrincipal / r.summary.totalPaid) * 100;
   return {
     principal,
-    labelPrincipal: `Основной долг ${principal.toFixed(1)}%`,
-    labelInterest: `Проценты ${(100 - principal).toFixed(1)}%`,
+    labelPrincipal: `Основной долг ${fmtRate(Math.round(principal * 10) / 10)}%`,
+    labelInterest: `Проценты ${fmtRate(Math.round((100 - principal) * 10) / 10)}%`,
   };
 }
 

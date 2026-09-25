@@ -49,6 +49,20 @@ jobs:
 
       - run: npm ci
 
+      - name: Форматирование
+        run: npm run format:check
+
+      # Без --fix: CI не чинит код молча, а падает
+      - name: Линтер
+        run: npm run lint:ci
+
+      - name: Типы и шаблоны
+        run: npm run check
+
+      # Расчётное ядро: переплата должна сходиться с банковскими графиками
+      - name: Тесты и покрытие
+        run: npm run test:coverage
+
       - run: npm run build
 
       # Превью не должно попасть в поиск: боевой домен calcwise.by, дубли контента

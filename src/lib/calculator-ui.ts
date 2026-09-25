@@ -717,7 +717,7 @@ export function initCalculator(root: HTMLElement): void {
     /* Ведомое поле показывает то, что получилось: платёж по сроку или срок по платежу.
        Ведущее не трогаем — в нём то, что ввёл человек */
     if (refs.driver() === 'term') {
-      refs.payment.value = formatAmountInput(String(maxPlannedPayment(result)));
+      refs.payment.value = formatAmountInput(maxPlannedPayment(result).toFixed(2));
     } else if (document.activeElement !== refs.term) {
       showTerm(refs, state.months);
     }

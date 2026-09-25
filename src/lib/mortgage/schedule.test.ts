@@ -650,3 +650,20 @@ test('расчёт по платежу: платёж меньше процент
   /* Беспроцентный кредит: срок = сумма / платёж, округлённо вверх */
   assert.equal(termForPayment(fixed(100_000, 0, 60, 'annuity'), 3000), 34);
 });
+
+test('расчёт по платежу: большой платёж и отсрочка — короткие сроки отсрочки отбрасываются', () => {
+  const input = fixed(100_000, 12, 60, 'annuity', { gracePeriods: [{ start: 1, months: 6 }] });
+  /* Сроки короче 7 месяцев невозможны: отсрочке нужен хотя бы один платёж после неё */
+  const months = termForPayment(input, 1_000_000)!;
+  assert.equal(months, 7);
+  assert.equal(buildSchedule({ ...input, months }).rows.at(-1)!.balance, 0);
+});
+
+test('чувствительность к сроку: сроки короче отсрочки пропускаются, а не падают', () => {
+  const cells = termSensitivity(
+    fixed(100_000, 12, 24, 'annuity', { gracePeriods: [{ start: 1, months: 18 }] }),
+  );
+  assert.ok(cells.length > 0);
+  assert.ok(cells.every((c) => c.value > 18));
+  assert.ok(cells.some((c) => c.isCurrent));
+});
