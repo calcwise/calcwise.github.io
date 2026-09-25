@@ -1,6 +1,6 @@
 ---
 /*
- * Форма калькулятора: четыре главных поля и раскрывающиеся дополнительные условия
+ * Форма калькулятора: тип платежей, четыре главных поля и раскрывающиеся дополнительные условия
  * (ставка по периодам, отсрочка, досрочные погашения, обратный расчёт срока).
  * Значения подставляет и строки условий рисует lib/calculator-ui.ts.
  */
@@ -14,50 +14,41 @@ const termUnits = [
 ---
 
 <form class="form no-print" data-form novalidate autocomplete="off" aria-label="Параметры кредита">
+  {/* Тип платежей — главная развилка расчёта, поэтому отдельно и крупно над полями */}
+  <div class="kind" role="radiogroup" aria-label="Тип платежей">
+    <label class="kind__option">
+      <input type="radio" name="type" value="annuity" checked />
+      <span class="kind__body">
+        <span class="kind__title">Аннуитетный</span>
+        <span class="kind__hint">платёж одинаковый весь срок</span>
+      </span>
+    </label>
+    <label class="kind__option">
+      <input type="radio" name="type" value="diff" />
+      <span class="kind__body">
+        <span class="kind__title">Дифференцированный</span>
+        <span class="kind__hint">платёж больше в начале и уменьшается</span>
+      </span>
+    </label>
+  </div>
+
+  {/* Срок и платёж связаны: ведёт поле, которое правили последним, второе пересчитывается */}
   <div class="form__main">
     <Field label="Сумма кредита" field="amount" size="lg" />
     <Field label="Ставка" field="rate" size="lg" unit="% годовых" />
-    {/* Подпись поля — переключатель: задать срок или платёж, срок тогда подбирается */}
+    <Field label="Срок" field="term" size="lg" id="term-label">
+      <Segmented name="term-unit" label="Единица срока" options={termUnits} value="years" inline />
+    </Field>
     <div class="control">
-      <div class="term-mode" role="radiogroup" aria-label="Что задать: срок или платёж">
-        <label class="term-mode__option">
-          <input type="radio" name="term-mode" value="term" checked />
-          <span>Срок</span>
-        </label>
-        <label class="term-mode__option">
-          <input type="radio" name="term-mode" value="payment" />
-          <span>Платёж в месяц</span>
-        </label>
-      </div>
-      <div class="control__field control__field--split">
+      <span class="control__label" id="payment-label" data-payment-label>Платёж в месяц</span>
+      <span class="control__field">
         <input
           class="control__input control__input--lg num"
-          data-field="term"
+          data-field="payment"
           inputmode="decimal"
-          aria-label="Срок"
+          aria-labelledby="payment-label"
         />
-        <Segmented
-          name="term-unit"
-          label="Единица срока"
-          options={termUnits}
-          value="years"
-          inline
-          data-term-units=""
-        />
-      </div>
-    </div>
-    {/* Не fieldset: legend не участвует в сетке control и сбивает линию с полями */}
-    <div class="control" role="group" aria-labelledby="type-label">
-      <span class="control__label" id="type-label">Тип платежей</span>
-      <Segmented
-        name="type"
-        label="Тип платежей"
-        value="annuity"
-        options={[
-          { value: 'annuity', label: 'Аннуитетный' },
-          { value: 'diff', label: 'Дифференцированный' },
-        ]}
-      />
+      </span>
     </div>
   </div>
 
@@ -186,47 +177,66 @@ const termUnits = [
     gap: var(--space-4);
   }
 
-  /* Переключатель в строке подписи: выглядит как подпись, выбранный вариант ярче.
-     Цель нажатия 44px, отрицательный отступ держит строку подписи той же высоты */
-  .term-mode {
+  /* Тип платежей: две большие карточки-радиокнопки с пояснением */
+  .kind {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-1);
+    padding: var(--space-1);
+    border-radius: var(--radius-md);
+    background: var(--color-track);
+  }
+
+  .kind__option {
     display: flex;
-    gap: var(--space-3);
-    margin-block: calc((1lh - var(--tap-min)) / 2);
-    font-size: var(--text-sm);
-  }
-
-  .term-mode__option {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--tap-min);
-    color: var(--color-text-muted);
+    position: relative;
+    min-width: 0;
     cursor: pointer;
-    transition: var(--transition-ui);
   }
 
-  .term-mode__option input {
+  .kind__option input {
     position: absolute;
     opacity: 0;
     pointer-events: none;
   }
 
-  .term-mode__option:hover {
+  .kind__body {
+    flex: 1;
+    display: grid;
+    gap: 2px;
+    align-content: center;
+    min-height: var(--control-height);
+    padding: var(--space-2) var(--space-3);
+    border-radius: calc(var(--radius-md) - 3px);
+    color: var(--color-text-muted);
+    transition: var(--transition-ui);
+  }
+
+  .kind__option:hover .kind__body {
     color: var(--color-text);
   }
 
-  .term-mode__option:has(input:checked) {
-    color: var(--color-text);
+  .kind__title {
     font-weight: 600;
-    text-decoration: underline;
-    text-decoration-color: var(--color-ink);
-    text-decoration-thickness: 2px;
-    text-underline-offset: 0.3em;
   }
 
-  .term-mode__option:has(input:focus-visible) {
-    outline: 2px solid var(--color-ink);
-    outline-offset: 2px;
-    border-radius: var(--radius-sm);
+  .kind__hint {
+    font-size: var(--text-xs);
+  }
+
+  .kind__option input:checked + .kind__body {
+    background: var(--color-thumb);
+    color: var(--color-text);
+    box-shadow: var(--shadow-thumb);
+  }
+
+  .kind__option input:checked + .kind__body .kind__hint {
+    color: var(--color-text-muted);
+  }
+
+  .kind__option input:focus-visible + .kind__body {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
   }
 
   .extra {
@@ -378,41 +388,31 @@ const termUnits = [
     color: var(--color-text-muted);
   }
 
-  @media (min-width: 480px) and (max-width: 767px) {
-    .form__main {
-      grid-template-columns: 1fr 1fr;
-    }
-
-    .form__main > :global(:first-child),
-    .form__main > :global(:last-child) {
-      grid-column: 1 / -1;
+  /* На узком экране пояснения к типу прячутся: без них оба варианта в одну строку */
+  @media (max-width: 479px) {
+    .kind__hint {
+      display: none;
     }
   }
 
-  /* 768–1023: сумма, ставка и срок в ряд, переключатель типа под ними во всю ширину,
-     чтобы «Дифференцированный» не переносился на вторую строку */
+  /* От 480px — сумма и ставка, под ними срок и платёж */
+  @media (min-width: 480px) {
+    .form__main {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+    }
+  }
+
   @media (min-width: 768px) {
     .form {
       padding: var(--space-5) var(--space-6);
     }
-
-    .form__main {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      align-items: start;
-    }
-
-    .form__main > :global(:last-child) {
-      grid-column: 1 / -1;
-    }
   }
 
+  /* От 1024px — все четыре поля в одну линию */
   @media (min-width: 1024px) {
     .form__main {
-      grid-template-columns: 1.1fr 0.9fr 1fr 1.8fr;
-    }
-
-    .form__main > :global(:last-child) {
-      grid-column: auto;
+      grid-template-columns: 1.2fr 0.9fr 1fr 1fr;
     }
 
     .block {

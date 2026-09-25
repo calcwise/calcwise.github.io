@@ -59,8 +59,12 @@ interface FormRefs {
   amount: HTMLInputElement;
   rate: HTMLInputElement;
   term: HTMLInputElement;
-  termUnit: () => 'years' | 'months' | 'payment';
-  termUnits: HTMLElement;
+  termUnit: () => 'years' | 'months';
+  payment: HTMLInputElement;
+  paymentLabel: HTMLElement;
+  /** Какое из связанных полей ведёт: срок или платёж (последнее изменённое) */
+  driver: () => 'term' | 'payment';
+  setDriver: (driver: 'term' | 'payment') => void;
   type: () => 'annuity' | 'diff';
   rates: HTMLElement;
   grace: HTMLElement;
@@ -72,11 +76,16 @@ interface FormRefs {
   errors: HTMLElement;
 }
 
-/* В режиме платежа единицы срока не нужны, а поле называется по-другому для читалок */
-function syncTermMode(refs: FormRefs): void {
-  const byPayment = refs.termUnit() === 'payment';
-  refs.termUnits.hidden = byPayment;
-  refs.term.setAttribute('aria-label', byPayment ? 'Платёж в месяц' : 'Срок');
+/* У дифференцированного графика платёж меняется: в поле — первый, самый большой */
+const paymentLabelText = (type: 'annuity' | 'diff') =>
+  type === 'diff' ? 'Первый платёж' : 'Платёж в месяц';
+
+/** Срок в поле в выбранных единицах; нецелое число лет переводит поле в месяцы */
+function showTerm(refs: FormRefs, months: number): void {
+  if (refs.termUnit() === 'years' && months % 12 !== 0) {
+    q<HTMLInputElement>(refs.form, 'input[name="term-unit"][value="months"]').checked = true;
+  }
+  refs.term.value = refs.termUnit() === 'years' ? String(months / 12) : String(months);
 }
 
 interface FieldError {
@@ -269,17 +278,13 @@ function fillForm(refs: FormRefs, state: CalculatorState, onChange: () => void):
   refs.rate.value = fmtRate(state.rates[0]!.ratePercent);
   const wholeYears = state.months % 12 === 0;
   const inYears = state.termInYears && wholeYears;
-  const byPayment = state.targetPayment !== undefined;
   const unit = inYears ? 'years' : 'months';
-  const mode = byPayment ? 'payment' : 'term';
   q<HTMLInputElement>(refs.form, `input[name="term-unit"][value="${unit}"]`).checked = true;
-  q<HTMLInputElement>(refs.form, `input[name="term-mode"][value="${mode}"]`).checked = true;
-  refs.term.value = byPayment
-    ? formatAmountInput(String(state.targetPayment))
-    : inYears
-      ? String(state.months / 12)
-      : String(state.months);
-  syncTermMode(refs);
+  refs.term.value = inYears ? String(state.months / 12) : String(state.months);
+  refs.setDriver(state.targetPayment !== undefined ? 'payment' : 'term');
+  refs.payment.value =
+    state.targetPayment !== undefined ? formatAmountInput(String(state.targetPayment)) : '';
+  refs.paymentLabel.textContent = paymentLabelText(state.type);
   q<HTMLInputElement>(refs.form, `input[name="type"][value="${state.type}"]`).checked = true;
 
   clear(refs.rates);
@@ -320,10 +325,10 @@ function readForm(refs: FormRefs): ReadResult {
   const unit = refs.termUnit();
   let months = Number.NaN;
   let targetPayment: number | undefined;
-  if (unit === 'payment') {
-    targetPayment = parseNumber(refs.term.value);
+  if (refs.driver() === 'payment') {
+    targetPayment = parseNumber(refs.payment.value);
     if (!Number.isFinite(targetPayment) || targetPayment <= 0)
-      errors.push({ field: 'term', message: 'Введите платёж в месяц больше 0' });
+      errors.push({ field: 'payment', message: 'Введите платёж в месяц больше 0' });
   } else if (unit === 'years') {
     const years = parseNumber(refs.term.value);
     months = Number.isFinite(years) ? Math.round(years * 12) : Number.NaN;
@@ -412,7 +417,7 @@ function readForm(refs: FormRefs): ReadResult {
     graceExtendsTerm: refs.graceExtends.checked,
     interestInArrears: refs.interestArrears.checked,
     prepayments,
-    termInYears: unit !== 'months',
+    termInYears: unit === 'years',
   };
   if (extraOverpayment !== undefined) state.extraOverpayment = extraOverpayment;
 
@@ -424,7 +429,7 @@ function readForm(refs: FormRefs): ReadResult {
       /* Проценты за месяц на всю сумму по самой высокой ставке: меньше них платить нельзя */
       const interest = (amount * Math.max(...rates.map((r) => r.ratePercent))) / 1200;
       errors.push({
-        field: 'term',
+        field: 'payment',
         message: `При таком платеже кредит не погасить и за 50 лет: проценты за месяц уже ${fmtMoney(interest)}, платёж должен быть заметно больше`,
       });
     } else state.months = found;
@@ -448,6 +453,7 @@ function showErrors(refs: FormRefs, errors: FieldError[]): void {
     else if (group === 'rate' || (group === 'rates' && index === '0'))
       target = refs.rate.closest('.control');
     else if (group === 'term' || group === 'months') target = refs.term.closest('.control');
+    else if (group === 'payment') target = refs.payment.closest('.control');
     else if (group === 'rates') target = qa(refs.rates, '[data-row]')[Number(index) - 1] ?? null;
     else if (group === 'grace') target = qa(refs.grace, '[data-row]')[Number(index)] ?? null;
     else if (group === 'prepayments')
@@ -639,14 +645,16 @@ export function initCalculator(root: HTMLElement): void {
     amount: q<HTMLInputElement>(form, '[data-field="amount"]'),
     rate: q<HTMLInputElement>(form, '[data-field="rate"]'),
     term: q<HTMLInputElement>(form, '[data-field="term"]'),
-    termUnit: () => {
-      if (q<HTMLInputElement>(form, 'input[name="term-mode"]:checked').value === 'payment')
-        return 'payment';
-      return q<HTMLInputElement>(form, 'input[name="term-unit"]:checked').value === 'years'
+    termUnit: () =>
+      q<HTMLInputElement>(form, 'input[name="term-unit"]:checked').value === 'years'
         ? 'years'
-        : 'months';
+        : 'months',
+    payment: q<HTMLInputElement>(form, '[data-field="payment"]'),
+    paymentLabel: q(form, '[data-payment-label]'),
+    driver: () => (form.dataset.driver === 'payment' ? 'payment' : 'term'),
+    setDriver: (driver) => {
+      form.dataset.driver = driver;
     },
-    termUnits: q(form, '[data-term-units]'),
     type: () =>
       q<HTMLInputElement>(form, 'input[name="type"]:checked').value === 'diff' ? 'diff' : 'annuity',
     rates: q(form, '[data-list="rates"]'),
@@ -706,6 +714,14 @@ export function initCalculator(root: HTMLElement): void {
     empty.hidden = Boolean(result);
     if (!result) return;
     current = state;
+    /* Ведомое поле показывает то, что получилось: платёж по сроку или срок по платежу.
+       Ведущее не трогаем — в нём то, что ввёл человек */
+    if (refs.driver() === 'term') {
+      refs.payment.value = formatAmountInput(String(maxPlannedPayment(result)));
+    } else if (document.activeElement !== refs.term) {
+      showTerm(refs, state.months);
+    }
+    refs.paymentLabel.textContent = paymentLabelText(state.type);
     renderSummary(root, state, result);
     renderScheduleTable(root, result, extraOverpayment(state));
     const effect = renderEffect(root, result);
@@ -744,34 +760,21 @@ export function initCalculator(root: HTMLElement): void {
     refs.amount.value = formatAmountInput(refs.amount.value);
   });
 
-  /* Переключение лет, месяцев, срока и платежа пересчитывает число в поле, а не условия:
-     в платёж подставляется текущий самый большой платёж, округлённый вверх до целого,
-     обратно — подобранный срок */
-  const termInField = () =>
-    refs.termUnit() === 'years'
-      ? String(Math.round((current.months / 12) * 100) / 100).replace('.', ',')
-      : String(current.months);
+  /* Переключение лет и месяцев пересчитывает число в поле, а не срок */
   qa<HTMLInputElement>(form, 'input[name="term-unit"]').forEach((radio) =>
     radio.addEventListener('change', () => {
-      refs.term.value = termInField();
+      const months = current.months;
+      refs.term.value =
+        radio.value === 'years'
+          ? String(Math.round((months / 12) * 100) / 100).replace('.', ',')
+          : String(months);
     }),
   );
-  qa<HTMLInputElement>(form, 'input[name="term-mode"]').forEach((radio) =>
-    radio.addEventListener('change', () => {
-      if (radio.value === 'payment') {
-        let payment = 0;
-        try {
-          payment = Math.ceil(maxPlannedPayment(buildSchedule(current)));
-        } catch {
-          payment = 0;
-        }
-        refs.term.value = payment > 0 ? formatAmountInput(String(payment)) : '';
-      } else refs.term.value = termInField();
-      syncTermMode(refs);
-    }),
-  );
-  refs.term.addEventListener('blur', () => {
-    if (refs.termUnit() === 'payment') refs.term.value = formatAmountInput(refs.term.value);
+  /* Какое поле правили последним, то и ведёт расчёт */
+  refs.term.addEventListener('input', () => refs.setDriver('term'));
+  refs.payment.addEventListener('input', () => refs.setDriver('payment'));
+  refs.payment.addEventListener('blur', () => {
+    refs.payment.value = formatAmountInput(refs.payment.value);
   });
 
   qa<HTMLButtonElement>(form, '[data-add]').forEach((button) =>
